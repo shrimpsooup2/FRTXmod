@@ -184,7 +184,7 @@ uniform vec4 u_vignette;  // x = strength, y = roundness, z = inner, w = outer
 uniform vec4 u_misc;      // x = aspect, y = time, z = debug view, w = unused
 uniform vec2 u_grade;     // x = temperature, y = tint
 uniform vec4 u_grade2;    // x = black point, y = shadow split, z = highlight split
-uniform vec3 u_clarity;   // x = amount, y = radius in screen uv, z = detail clamp
+uniform vec4 u_clarity;   // x = amount, y = radius in screen uv, z = detail clamp, w = use 8 taps
 
 varying vec2 v_texCoord;
 
@@ -222,19 +222,28 @@ vec3 applyClarity(vec3 color, vec2 screenUV) {
     // The radius arrives normalised against screen height, so the horizontal
     // component is divided by the aspect ratio to keep the ring circular.
     vec2 r = vec2(u_clarity.y / u_misc.x, u_clarity.y);
-    vec2 rx = vec2(r.x, 0.0);
-    vec2 ry = vec2(0.0, r.y);
     vec2 rd = r * 0.7071;
 
-    vec3 low = texture2D(u_scene, (screenUV + rx) * u_sceneUV).rgb;
-    low += texture2D(u_scene, (screenUV - rx) * u_sceneUV).rgb;
-    low += texture2D(u_scene, (screenUV + ry) * u_sceneUV).rgb;
-    low += texture2D(u_scene, (screenUV - ry) * u_sceneUV).rgb;
-    low += texture2D(u_scene, (screenUV + rd) * u_sceneUV).rgb;
+    // Four diagonal taps estimate the local average well enough at the radii
+    // clarity is actually used at, for half the bandwidth of the full ring.
+    // These are full resolution fetches, so this is the most expensive thing
+    // in the pass and the first place to buy frames back.
+    vec3 low = texture2D(u_scene, (screenUV + rd) * u_sceneUV).rgb;
     low += texture2D(u_scene, (screenUV - rd) * u_sceneUV).rgb;
     low += texture2D(u_scene, (screenUV + vec2(rd.x, -rd.y)) * u_sceneUV).rgb;
     low += texture2D(u_scene, (screenUV - vec2(rd.x, -rd.y)) * u_sceneUV).rgb;
-    low *= 0.125;
+
+    if (u_clarity.w > 0.5) {
+        vec2 rx = vec2(r.x, 0.0);
+        vec2 ry = vec2(0.0, r.y);
+        low += texture2D(u_scene, (screenUV + rx) * u_sceneUV).rgb;
+        low += texture2D(u_scene, (screenUV - rx) * u_sceneUV).rgb;
+        low += texture2D(u_scene, (screenUV + ry) * u_sceneUV).rgb;
+        low += texture2D(u_scene, (screenUV - ry) * u_sceneUV).rgb;
+        low *= 0.125;
+    } else {
+        low *= 0.25;
+    }
 
     vec3 detail = color - low;
     detail = sign(detail) * min(abs(detail), vec3(u_clarity.z));
@@ -249,13 +258,26 @@ void main() {
         color = applyClarity(color, uv);
     }
 
-    vec3 bloom = texture2D(u_bloom0, uv * u_bloomUV0).rgb * u_bloom.x
-               + texture2D(u_bloom1, uv * u_bloomUV1).rgb * u_bloom.y
-               + texture2D(u_bloom2, uv * u_bloomUV2).rgb * u_bloom.z;
+    // Each of these is a full resolution fetch, and an effect that is switched
+    // off still has a texture bound to its unit. Branching on the weight is
+    // uniform across the whole draw, so it costs nothing when taken and saves
+    // real bandwidth in every configuration that does not use all of them --
+    // which is the default one.
+    vec3 bloom = vec3(0.0);
+    if (u_bloom.x > 0.0) bloom += texture2D(u_bloom0, uv * u_bloomUV0).rgb * u_bloom.x;
+    if (u_bloom.y > 0.0) bloom += texture2D(u_bloom1, uv * u_bloomUV1).rgb * u_bloom.y;
+    if (u_bloom.z > 0.0) bloom += texture2D(u_bloom2, uv * u_bloomUV2).rgb * u_bloom.z;
     bloom *= u_bloom.w * u_bloomTint;
 
-    vec3 streak = texture2D(u_streakTex, uv * u_streakUV).rgb * u_streak;
-    vec3 rays = texture2D(u_raysTex, uv * u_raysUV).rgb * u_rays;
+    vec3 streak = vec3(0.0);
+    if (dot(u_streak, vec3(1.0)) > 0.0) {
+        streak = texture2D(u_streakTex, uv * u_streakUV).rgb * u_streak;
+    }
+
+    vec3 rays = vec3(0.0);
+    if (dot(u_rays, vec3(1.0)) > 0.0) {
+        rays = texture2D(u_raysTex, uv * u_raysUV).rgb * u_rays;
+    }
 
     if (u_misc.z > 0.5 && u_misc.z < 1.5) {
         gl_FragColor = vec4(color, 1.0);

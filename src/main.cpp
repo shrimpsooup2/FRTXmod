@@ -1,8 +1,10 @@
+#include "FRTXConfig.hpp"
 #include "render/FRTXPostProcessor.hpp"
 #include "ui/FRTXTuner.hpp"
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
+#include <Geode/modify/LevelEditorLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 
 using namespace geode::prelude;
@@ -17,9 +19,10 @@ using namespace geode::prelude;
 class $modify(FRTXGameLayer, GJBaseGameLayer) {
     void visit() {
         auto& post = frtx::PostProcessor::get();
+        auto const& cfg = FRTXConfig::current();
 
         bool const inEditor = typeinfo_cast<LevelEditorLayer*>(this) != nullptr;
-        if (inEditor && !Mod::get()->getSettingValue<bool>("enable-in-editor")) {
+        if (inEditor && !cfg.enableInEditor) {
             GJBaseGameLayer::visit();
             return;
         }
@@ -44,7 +47,6 @@ class $modify(FRTXGameLayer, GJBaseGameLayer) {
         // Only lift the UI out if it really is our child; on any layout where
         // it lives elsewhere it is already outside the capture and hiding it
         // here would just make it disappear.
-        auto const& cfg = post.frameConfig();
         bool const liftUI = cfg.excludeUI && m_uiLayer && m_uiLayer->getParent() == this;
         if (liftUI) m_uiLayer->setVisible(false);
 
@@ -67,6 +69,15 @@ class $modify(FRTXGameLayer, GJBaseGameLayer) {
 };
 
 class $modify(FRTXPlayLayer, PlayLayer) {
+    bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
+        if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
+        // Compile and allocate here rather than on the first frame that
+        // actually renders, so the cost lands during the level transition
+        // instead of as a hitch once the player is already moving.
+        frtx::PostProcessor::get().warmUp();
+        return true;
+    }
+
     void onQuit() {
         // Not strictly required -- the targets are reused rather than
         // reallocated per level -- but there is no reason to hold several
@@ -76,7 +87,25 @@ class $modify(FRTXPlayLayer, PlayLayer) {
     }
 };
 
+class $modify(FRTXEditorLayer, LevelEditorLayer) {
+    bool init(GJGameLevel* level, bool noUI) {
+        if (!LevelEditorLayer::init(level, noUI)) return false;
+        if (FRTXConfig::current().enableInEditor) {
+            frtx::PostProcessor::get().warmUp();
+        }
+        return true;
+    }
+};
+
 $on_mod(Loaded) {
+    // Reading forty-odd settings costs a hash lookup and a dynamic_cast each,
+    // which is far too much to repeat every frame. Cache the snapshot and drop
+    // it only when something actually changes; Geode sends this synchronously
+    // from setValue, so both the settings menu and the tuner are covered.
+    listenForAllSettingChanges([](auto, auto) {
+        FRTXConfig::invalidate();
+    });
+
     FRTXTuner::registerListeners();
     log::info("FRTX loaded");
 }

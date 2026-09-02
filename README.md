@@ -101,7 +101,29 @@ the very next frame.
 ## Presets
 
 Start with **Preset**, not with the sliders: `1` Subtle, `2` Showcase (default),
-`3` Overkill, `0` Custom.
+`3` Overkill, `4` Performance, `0` Custom.
+
+## Performance
+
+The pixel work is irreducibly per-frame — bloom depends on what is on screen
+now — but everything around it happens once:
+
+- **Shaders compile and buffers allocate at level open**, from `PlayLayer::init`
+  and `LevelEditorLayer::init`, rather than lazily on the first captured frame.
+  Five shader compiles and eight framebuffer allocations inside the first frame
+  the player sees is exactly where a hitch is most visible.
+- **Settings are cached.** `Mod::getSettingValue` is a hash lookup plus a
+  `dynamic_cast` per call, and there are forty-five of them; reading that every
+  frame was pure waste. `FRTXConfig::current()` returns a snapshot that a
+  `listenForAllSettingChanges` listener invalidates. Geode dispatches that event
+  synchronously from `setValue`, so both the settings menu and the tuner are
+  covered without polling.
+- **Derived values follow the cache**, not the frame. A generation counter lets
+  the bloom weights be recomputed only when a setting actually moved.
+- **Effects that are off cost nothing.** An unused bloom level or a disabled
+  streak still had a texture bound to its unit and was being sampled and
+  multiplied by zero; those fetches are now behind uniform branches, which are
+  coherent across the draw and so free when taken.
 
 ## Settings are generated
 

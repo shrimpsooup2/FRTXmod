@@ -15,6 +15,8 @@ Set **Preset** and leave everything else alone:
 - **1 — Subtle**: the look without the drama. Safe for actually playing.
 - **2 — Showcase** *(default)*: what these levels look like in a video.
 - **3 — Overkill**: too much, on purpose.
+- **4 — Performance**: for keeping frames. Smaller bloom buffers, one fewer
+  blur level, and everything that costs fill rate switched off.
 - **0 — Custom**: every slider is yours.
 
 ## Tune it live
@@ -49,9 +51,22 @@ renders completely untouched and no GPU memory is used at all.
 
 ## Performance
 
-The bloom buffers default to half resolution, which is where most of the cost
-lives. If you need frames back, in order: drop **Bloom: Resolution Scale**, then
-**Bloom: Quality**, then **Light Rays: Samples**, then **Clarity** to 0.
+Post processing cannot be precomputed: the glow depends on what is on screen
+this frame, and the screen changes every frame. What *can* be done once is
+everything around it, and is: shaders are compiled and buffers allocated when
+the level opens rather than on the first frame you see, settings are read once
+and cached rather than forty-five times a frame, and effects that are switched
+off cost nothing at all rather than being sampled and multiplied by zero.
+
+For the per-frame cost that remains, **Preset 4 (Performance)** is the one
+setting to reach for. Tuning by hand, in order of how much each buys:
+
+1. **Bloom: Resolution Scale** — the single biggest lever.
+2. **Clarity** to 0 — it is four full resolution fetches per pixel, or eight
+   if you raised **Clarity: Taps**.
+3. **Bloom: Quality** — one fewer level is two fewer blur passes.
+4. **Lens: Chromatic Aberration** to 0 — two more full resolution fetches.
+5. **Light Rays: Samples**, if you turned rays on at all.
 
 ## Tuning tips
 

@@ -35,7 +35,7 @@ bool PostProcessor::beginCapture(FrameInfo const& info) {
         m_capturing = false;
     }
 
-    auto cfg = FRTXConfig::read();
+    auto const& cfg = FRTXConfig::current();
     if (cfg.isNoOp()) return false;
 
     if (!ensurePrograms()) return false;
@@ -69,6 +69,13 @@ void PostProcessor::endCapture() {
         }
     }
     present(cfg);
+}
+
+void PostProcessor::warmUp() {
+    auto const& cfg = FRTXConfig::current();
+    if (cfg.isNoOp()) return;
+    if (!ensurePrograms()) return;
+    ensureTargets(cfg);
 }
 
 void PostProcessor::releaseResources() {
@@ -215,6 +222,7 @@ void PostProcessor::releaseTargets() {
     m_raysValid = false;
     m_activeLevels = 0;
     m_targetsValid = false;
+    m_weightsStamp = 0;
 }
 
 void PostProcessor::buildBloom(FRTXConfig const& cfg) {
@@ -317,16 +325,23 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     // the widest levels through and gives the large soft halo that showcase
     // footage has around every light source. Normalising keeps "intensity"
     // meaning the same thing whatever the level count is.
-    float weights[kMaxBloomLevels] = {0.0f, 0.0f, 0.0f};
-    if (cfg.bloomEnabled && m_activeLevels > 0) {
-        float const falloff = 0.5f + 0.5f * cfg.bloomSpread;
-        float sum = 0.0f;
-        for (int i = 0; i < m_activeLevels; ++i) {
-            weights[i] = std::pow(falloff, static_cast<float>(i));
-            sum += weights[i];
+    //
+    // Recomputed only when the settings change, not per frame: three pow()
+    // calls are not much, but nothing here needs doing sixty times a second.
+    if (m_weightsStamp != FRTXConfig::generation()) {
+        for (int i = 0; i < kMaxBloomLevels; ++i) m_weights[i] = 0.0f;
+        if (cfg.bloomEnabled && m_activeLevels > 0) {
+            float const falloff = 0.5f + 0.5f * cfg.bloomSpread;
+            float sum = 0.0f;
+            for (int i = 0; i < m_activeLevels; ++i) {
+                m_weights[i] = std::pow(falloff, static_cast<float>(i));
+                sum += m_weights[i];
+            }
+            for (int i = 0; i < m_activeLevels; ++i) m_weights[i] /= sum;
         }
-        for (int i = 0; i < m_activeLevels; ++i) weights[i] /= sum;
+        m_weightsStamp = FRTXConfig::generation();
     }
+    float const* const weights = m_weights;
 
     m_composite.use();
     m_composite.set1i("u_scene", 0);
@@ -390,7 +405,8 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);
     // 0.25 is enough headroom for real detail while staying well short of the
     // contrast that would show as a ring.
-    m_composite.set3f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight, 0.25f);
+    m_composite.set4f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight, 0.25f,
+        cfg.clarityTaps > 4 ? 1.0f : 0.0f);
 
     setReplaceBlend();
     drawFullscreenQuad();

@@ -5,7 +5,7 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.4.0",
+    "version": "v0.5.0",
     "developers": [
         "shrimpsooup2"
     ],
@@ -24,11 +24,11 @@
         },
         "preset": {
             "name": "Preset",
-            "description": "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill. Anything other than Custom overrides every look setting below, so set this to 0 before tuning by hand.",
+            "description": "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill, 4 = Performance. Anything other than Custom overrides every look setting below, so set this to 0 before tuning by hand.",
             "type": "int",
             "default": 2,
             "min": 0,
-            "max": 3,
+            "max": 4,
             "control": {
                 "slider": true,
                 "input": true
@@ -345,6 +345,18 @@
             "default": 3.5,
             "min": 1.0,
             "max": 16.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "clarity-taps": {
+            "name": "Taps",
+            "description": "Samples used to estimate the blur clarity works against. 4 is half the cost and near indistinguishable at small radii; 8 is smoother at large ones. This is the most expensive part of the final pass.",
+            "type": "int",
+            "default": 4,
+            "min": 4,
+            "max": 8,
             "control": {
                 "slider": true,
                 "input": true

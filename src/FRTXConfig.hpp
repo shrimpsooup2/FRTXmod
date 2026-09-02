@@ -22,6 +22,7 @@ enum class FRTXPreset {
     Subtle = 1,
     Showcase = 2,
     Overkill = 3,
+    Performance = 4,
 };
 
 struct FRTXConfig {
@@ -32,7 +33,23 @@ struct FRTXConfig {
     FRTXColor member{r / 255.0f, g / 255.0f, b / 255.0f};
 #include "FRTXParams.inc"
 
+    // Reads every setting from Geode. Each lookup is a hash lookup plus a
+    // dynamic_cast, so at forty-odd settings this is far too expensive to do
+    // per frame -- use current() instead and let the settings listener decide
+    // when a re-read is actually needed.
     static FRTXConfig read();
+
+    // The cached snapshot. Re-reads only after invalidate().
+    static FRTXConfig const& current();
+
+    // Called by the settings-changed listener. Geode dispatches that event
+    // synchronously from setValue, so a write through either the settings menu
+    // or the tuner has already invalidated this by the time it returns.
+    static void invalidate();
+
+    // Bumped on every invalidate, so derived values computed from a config can
+    // be cached and recomputed only when it actually changed.
+    static unsigned generation();
 
     // Streaks and rays are both built from the bright pass, so they need the
     // bloom chain to exist.

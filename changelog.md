@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.5.0
+
+Performance pass. The per-frame pixel work is irreducible — the glow depends on
+what is on screen this frame — but everything around it was being repeated for
+no reason.
+
+- **Warm-up at level open.** Shader compilation and render target allocation
+  move from the first captured frame to `PlayLayer::init` and
+  `LevelEditorLayer::init`, so the cost lands during the transition rather than
+  as a hitch once the player is already moving.
+- **Settings are cached.** Forty-five `getSettingValue` calls a frame, each a
+  hash lookup plus a `dynamic_cast`, are now one snapshot invalidated by a
+  settings-changed listener.
+- **Bloom weights** are recomputed on a generation counter rather than every
+  frame.
+- **Disabled effects cost nothing.** Unused bloom levels, streaks and rays were
+  still being sampled at full resolution and multiplied by zero; those fetches
+  are now behind uniform branches.
+- **Clarity taps are configurable**, 4 or 8, defaulting to 4. It is the most
+  expensive part of the final pass and 4 is near indistinguishable at the radii
+  clarity is actually used at.
+- **New Performance preset** (4), with everything that costs fill rate turned
+  off and smaller bloom buffers.
+
 ## v0.4.0
 
 Verified against the real Geode SDK and GD bindings for the first time, which

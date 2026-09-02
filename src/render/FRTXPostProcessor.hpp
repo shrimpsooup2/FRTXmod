@@ -35,6 +35,13 @@ public:
     bool beginCapture(FrameInfo const& info);
     void endCapture();
 
+    // Compiles the shaders and allocates the render targets ahead of time.
+    // Called when a level opens: doing it lazily on the first captured frame
+    // puts five shader compiles and eight framebuffer allocations inside the
+    // first frame the player sees, which is exactly where a hitch is most
+    // noticeable.
+    void warmUp();
+
     bool isCapturing() const { return m_capturing; }
 
     // Frees the render targets. Shader programs are kept, they are cheap and
@@ -93,6 +100,11 @@ private:
     Program m_blur;
     Program m_rayProgram;
     Program m_composite;
+
+    // Per level bloom weights, recomputed only when the settings actually
+    // change rather than every frame.
+    float m_weights[kMaxBloomLevels] = {0.0f, 0.0f, 0.0f};
+    unsigned m_weightsStamp = 0;
 
     float m_time = 0.0f;
     float m_aspect = 1.0f;

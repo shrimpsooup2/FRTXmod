@@ -99,6 +99,31 @@ namespace {
                 cfg.grain = 0.0f;
                 return;
 
+            // Every knob that costs fill rate turned down or off: no streaks,
+            // no rays, no clarity (which is 4 to 8 full resolution fetches per
+            // pixel), no chromatic aberration (2 more), smaller bloom buffers
+            // and one fewer blur level.
+            case FRTXPreset::Performance:
+                cfg.bloomIntensity = 1.30f;
+                cfg.bloomThreshold = 0.60f;
+                cfg.bloomKnee = 0.40f;
+                cfg.bloomRadius = 1.6f;
+                cfg.bloomLevels = 2;
+                cfg.bloomScale = 0.35f;
+                cfg.bloomSpread = 0.70f;
+                cfg.emissiveBias = 0.55f;
+                cfg.exposure = 1.03f;
+                cfg.contrast = 1.08f;
+                cfg.saturation = 1.18f;
+                cfg.clarity = 0.0f;
+                cfg.blackPoint = 0.040f;
+                cfg.splitShadow = 0.15f;
+                cfg.splitHighlight = 0.0f;
+                cfg.vignette = 0.0f;
+                cfg.chromatic = 0.0f;
+                cfg.grain = 0.0f;
+                return;
+
             case FRTXPreset::Overkill:
                 cfg.bloomIntensity = 2.60f;
                 cfg.bloomThreshold = 0.35f;
@@ -145,6 +170,29 @@ FRTXConfig FRTXConfig::read() {
     }
 
     return cfg;
+}
+
+namespace {
+    FRTXConfig g_cached;
+    bool g_cacheValid = false;
+    unsigned g_generation = 1;
+}
+
+FRTXConfig const& FRTXConfig::current() {
+    if (!g_cacheValid) {
+        g_cached = read();
+        g_cacheValid = true;
+    }
+    return g_cached;
+}
+
+void FRTXConfig::invalidate() {
+    g_cacheValid = false;
+    ++g_generation;
+}
+
+unsigned FRTXConfig::generation() {
+    return g_generation;
 }
 
 bool FRTXConfig::isNoOp() const {
