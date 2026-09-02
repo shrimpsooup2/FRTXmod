@@ -1,0 +1,173 @@
+{
+    "geode": "4.0.0",
+    "gd": {
+        "win": "2.2074"
+    },
+    "id": "shrimpsooup2.frtx",
+    "name": "FRTX",
+    "version": "v0.1.0",
+    "developers": ["shrimpsooup2"],
+    "description": "RTX-style post processing for Geometry Dash: bloom, filmic tonemapping and colour grading.",
+    "repository": "https://github.com/shrimpsooup2/FRTXmod",
+    "settings": {
+        "enabled": {
+            "name": "Enable FRTX",
+            "description": "Master switch. When off the game renders completely untouched and no GPU memory is used.",
+            "type": "bool",
+            "default": true
+        },
+        "bloom-enabled": {
+            "name": "Bloom: Enabled",
+            "description": "Makes bright objects, glow and particles bleed light into their surroundings.",
+            "type": "bool",
+            "default": true
+        },
+        "bloom-intensity": {
+            "name": "Bloom: Intensity",
+            "description": "How strongly the blurred highlights are added back on top of the scene.",
+            "type": "float",
+            "default": 1.0,
+            "min": 0.0,
+            "max": 4.0,
+            "control": { "slider": true, "input": true }
+        },
+        "bloom-threshold": {
+            "name": "Bloom: Threshold",
+            "description": "Brightness a pixel must reach before it starts to glow. Lower values make more of the screen bloom.",
+            "type": "float",
+            "default": 0.75,
+            "min": 0.0,
+            "max": 1.5,
+            "control": { "slider": true, "input": true }
+        },
+        "bloom-knee": {
+            "name": "Bloom: Soft Knee",
+            "description": "Softness of the threshold. 0 is a hard cutoff, higher values fade highlights in gradually.",
+            "type": "float",
+            "default": 0.4,
+            "min": 0.0,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "bloom-radius": {
+            "name": "Bloom: Radius",
+            "description": "Scales the blur step size. Larger values spread the glow further at the cost of some fidelity.",
+            "type": "float",
+            "default": 1.0,
+            "min": 0.25,
+            "max": 4.0,
+            "control": { "slider": true, "input": true }
+        },
+        "bloom-levels": {
+            "name": "Bloom: Quality",
+            "description": "Number of blur levels. 1 is a tight glow and cheapest, 3 gives a wide cinematic falloff.",
+            "type": "int",
+            "default": 3,
+            "min": 1,
+            "max": 3,
+            "control": { "slider": true, "input": true }
+        },
+        "bloom-scale": {
+            "name": "Bloom: Resolution Scale",
+            "description": "Resolution of the bloom buffers relative to the screen. Lower is faster and slightly softer.",
+            "type": "float",
+            "default": 0.5,
+            "min": 0.25,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "tonemap-enabled": {
+            "name": "Grade: Filmic Tonemapping",
+            "description": "Applies an ACES filmic curve so bright areas roll off smoothly instead of clipping to white.",
+            "type": "bool",
+            "default": true
+        },
+        "exposure": {
+            "name": "Grade: Exposure",
+            "description": "Overall brightness multiplier applied before tonemapping.",
+            "type": "float",
+            "default": 1.0,
+            "min": 0.25,
+            "max": 2.5,
+            "control": { "slider": true, "input": true }
+        },
+        "contrast": {
+            "name": "Grade: Contrast",
+            "description": "1.0 leaves contrast untouched.",
+            "type": "float",
+            "default": 1.05,
+            "min": 0.5,
+            "max": 2.0,
+            "control": { "slider": true, "input": true }
+        },
+        "saturation": {
+            "name": "Grade: Saturation",
+            "description": "0 is greyscale, 1.0 is untouched.",
+            "type": "float",
+            "default": 1.08,
+            "min": 0.0,
+            "max": 2.0,
+            "control": { "slider": true, "input": true }
+        },
+        "temperature": {
+            "name": "Grade: Temperature",
+            "description": "Negative values cool the image towards blue, positive values warm it towards orange.",
+            "type": "float",
+            "default": 0.15,
+            "min": -1.0,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "tint": {
+            "name": "Grade: Tint",
+            "description": "Negative values push towards magenta, positive values towards green.",
+            "type": "float",
+            "default": 0.0,
+            "min": -1.0,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "vignette": {
+            "name": "Lens: Vignette",
+            "description": "Darkens the corners of the screen. 0 disables it.",
+            "type": "float",
+            "default": 0.25,
+            "min": 0.0,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "chromatic": {
+            "name": "Lens: Chromatic Aberration",
+            "description": "Splits red and blue towards the edges of the screen, like a real camera lens. 0 disables it.",
+            "type": "float",
+            "default": 0.12,
+            "min": 0.0,
+            "max": 1.0,
+            "control": { "slider": true, "input": true }
+        },
+        "grain": {
+            "name": "Lens: Film Grain",
+            "description": "Adds animated noise. Keep this very low; 0 disables it.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 0.15,
+            "control": { "slider": true, "input": true }
+        },
+        "dither": {
+            "name": "Lens: Dithering",
+            "description": "Adds an imperceptible amount of noise to hide colour banding in smooth gradients.",
+            "type": "bool",
+            "default": true
+        },
+        "debug-view": {
+            "name": "Debug View",
+            "description": "0 = normal, 1 = captured scene only, 2 = bloom only. Useful when tuning the threshold.",
+            "type": "int",
+            "default": 0,
+            "min": 0,
+            "max": 2,
+            "control": { "slider": true, "input": true }
+        }
+    }
+}

@@ -1,0 +1,23 @@
+# Build output
+build/
+build-*/
+out/
+*.geode
+*.lib
+*.pdb
+*.exp
+*.dll
+*.so
+*.dylib
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Editors
+.vscode/
+.idea/
+.cache/
+*.user

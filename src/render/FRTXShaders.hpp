@@ -1,0 +1,210 @@
+#pragma once
+
+// All GLSL used by the mod.
+//
+// These are written for GLSL ES 1.00 / desktop GLSL 1.20 with *no* version
+// directive, because cocos2d-x prepends its own preamble (precision qualifiers
+// on GLES, plus the CC_* built-in uniforms) before compiling. Sticking to
+// `attribute` / `varying` / `texture2D` keeps the same source valid on both
+// desktop OpenGL and OpenGL ES 2.0.
+//
+// Every pass receives `v_texCoord` in normalised *screen* space (0..1) rather
+// than in texture space. Each shader then scales it by the `u_*UV` extent of the
+// texture it is about to read. That indirection exists because a cocos render
+// texture is padded up to a power of two when the driver lacks NPOT support, so
+// the image only occupies part of the allocated texture, and the fraction is
+// different for every buffer in the chain.
+
+namespace frtx::shaders {
+
+// Positions arrive already in clip space, so the vertex shader deliberately
+// ignores CC_MVPMatrix. That makes the passes immune to whatever projection
+// cocos happens to have set up when a render texture is bound.
+inline constexpr char const* VERTEX = R"(
+attribute vec4 a_position;
+attribute vec2 a_texCoord;
+
+varying vec2 v_texCoord;
+
+void main() {
+    gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+    v_texCoord = a_texCoord;
+}
+)";
+
+// Bright pass: box-downsample the scene and keep only what is above the
+// threshold, with a soft knee so highlights fade in instead of popping.
+inline constexpr char const* PREFILTER = R"(
+uniform sampler2D u_source;
+uniform vec2 u_sourceUV;
+uniform vec2 u_texelSize;
+uniform vec3 u_filter; // x = threshold, y = knee, z = 1 / (4 * knee)
+
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord * u_sourceUV;
+    vec2 o = u_texelSize;
+
+    vec3 c = texture2D(u_source, uv + vec2(-o.x, -o.y)).rgb;
+    c += texture2D(u_source, uv + vec2( o.x, -o.y)).rgb;
+    c += texture2D(u_source, uv + vec2(-o.x,  o.y)).rgb;
+    c += texture2D(u_source, uv + vec2( o.x,  o.y)).rgb;
+    c *= 0.25;
+
+    float brightness = max(c.r, max(c.g, c.b));
+
+    float soft = brightness - u_filter.x + u_filter.y;
+    soft = clamp(soft, 0.0, 2.0 * u_filter.y);
+    soft = soft * soft * u_filter.z;
+
+    float contribution = max(soft, brightness - u_filter.x) / max(brightness, 0.0001);
+
+    gl_FragColor = vec4(c * contribution, 1.0);
+}
+)";
+
+// Plain 4-tap box downsample used to build the lower bloom levels.
+inline constexpr char const* DOWNSAMPLE = R"(
+uniform sampler2D u_source;
+uniform vec2 u_sourceUV;
+uniform vec2 u_texelSize;
+
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord * u_sourceUV;
+    vec2 o = u_texelSize;
+
+    vec3 c = texture2D(u_source, uv + vec2(-o.x, -o.y)).rgb;
+    c += texture2D(u_source, uv + vec2( o.x, -o.y)).rgb;
+    c += texture2D(u_source, uv + vec2(-o.x,  o.y)).rgb;
+    c += texture2D(u_source, uv + vec2( o.x,  o.y)).rgb;
+
+    gl_FragColor = vec4(c * 0.25, 1.0);
+}
+)";
+
+// Separable gaussian. Nine taps folded into five by leaning on bilinear
+// filtering to fetch two texels at a time.
+inline constexpr char const* BLUR = R"(
+uniform sampler2D u_source;
+uniform vec2 u_sourceUV;
+uniform vec2 u_offset; // direction * texel size * radius
+
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord * u_sourceUV;
+    vec2 o1 = u_offset * 1.3846153846;
+    vec2 o2 = u_offset * 3.2307692308;
+
+    vec3 c = texture2D(u_source, uv).rgb * 0.2270270270;
+    c += (texture2D(u_source, uv + o1).rgb +
+          texture2D(u_source, uv - o1).rgb) * 0.3162162162;
+    c += (texture2D(u_source, uv + o2).rgb +
+          texture2D(u_source, uv - o2).rgb) * 0.0702702703;
+
+    gl_FragColor = vec4(c, 1.0);
+}
+)";
+
+// Everything that touches the final image happens here in one pass: bloom
+// combine, tonemap, grade and lens effects.
+inline constexpr char const* COMPOSITE = R"(
+uniform sampler2D u_scene;
+uniform sampler2D u_bloom0;
+uniform sampler2D u_bloom1;
+uniform sampler2D u_bloom2;
+
+uniform vec2 u_sceneUV;
+uniform vec2 u_bloomUV0;
+uniform vec2 u_bloomUV1;
+uniform vec2 u_bloomUV2;
+
+uniform vec4 u_bloom;  // xyz = per level weights, w = intensity
+uniform vec4 u_tone;   // x = exposure, y = contrast, z = saturation, w = tonemap on
+uniform vec4 u_lens;   // x = vignette, y = chromatic, z = grain, w = dither on
+uniform vec4 u_misc;   // x = aspect, y = time, z = debug view, w = unused
+uniform vec2 u_grade;  // x = temperature, y = tint
+
+varying vec2 v_texCoord;
+
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+// Narkowicz's ACES filmic curve fit.
+vec3 tonemapACES(vec3 x) {
+    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
+vec3 sampleScene(vec2 screenUV, float amount) {
+    if (amount <= 0.0) {
+        return texture2D(u_scene, screenUV * u_sceneUV).rgb;
+    }
+    // The offset grows with the square of the distance from the centre, so the
+    // middle of the screen stays perfectly sharp.
+    vec2 d = screenUV - vec2(0.5);
+    vec2 offset = d * dot(d, d) * amount * 0.15;
+    return vec3(
+        texture2D(u_scene, (screenUV - offset) * u_sceneUV).r,
+        texture2D(u_scene, screenUV * u_sceneUV).g,
+        texture2D(u_scene, (screenUV + offset) * u_sceneUV).b
+    );
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+
+    vec3 color = sampleScene(uv, u_lens.y);
+
+    vec3 bloom = texture2D(u_bloom0, uv * u_bloomUV0).rgb * u_bloom.x
+               + texture2D(u_bloom1, uv * u_bloomUV1).rgb * u_bloom.y
+               + texture2D(u_bloom2, uv * u_bloomUV2).rgb * u_bloom.z;
+    bloom *= u_bloom.w;
+
+    if (u_misc.z > 0.5 && u_misc.z < 1.5) {
+        gl_FragColor = vec4(color, 1.0);
+        return;
+    }
+    if (u_misc.z > 1.5) {
+        gl_FragColor = vec4(bloom, 1.0);
+        return;
+    }
+
+    color += bloom;
+
+    color *= u_tone.x;
+    if (u_tone.w > 0.5) {
+        color = tonemapACES(color);
+    } else {
+        color = clamp(color, 0.0, 1.0);
+    }
+
+    // White balance. Both curves are the identity at 0 so the neutral setting
+    // leaves the image untouched.
+    color *= vec3(1.0) + vec3( 0.06, -0.02, -0.10) * u_grade.x;
+    color *= vec3(1.0) + vec3(-0.04,  0.05, -0.04) * u_grade.y;
+
+    color = (color - 0.5) * u_tone.y + 0.5;
+    color = mix(vec3(dot(color, LUMA)), color, u_tone.z);
+
+    if (u_lens.x > 0.0) {
+        vec2 d = (uv - vec2(0.5)) * vec2(u_misc.x, 1.0);
+        float v = 1.0 - smoothstep(0.25, 0.85, length(d));
+        color *= mix(1.0, v, u_lens.x);
+    }
+
+    float noise = fract(sin(dot(uv + fract(u_misc.y), vec2(12.9898, 78.233))) * 43758.5453);
+    if (u_lens.z > 0.0) {
+        color += (noise - 0.5) * u_lens.z;
+    }
+    if (u_lens.w > 0.5) {
+        // Roughly half a least significant bit, enough to break up banding.
+        color += (noise - 0.5) * (1.0 / 255.0);
+    }
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+}
+)";
+
+}

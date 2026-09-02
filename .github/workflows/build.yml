@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # Windows is the supported target and gates the build.
+          - name: Windows
+            os: windows-latest
+            target: Win64
+            optional: false
+          # These are built for information only: the code is written to be
+          # portable, but these platforms are not listed in mod.json yet, so a
+          # failure here must not fail the workflow.
+          - name: macOS
+            os: macos-latest
+            target: MacOS
+            optional: true
+          - name: Android64
+            os: ubuntu-latest
+            target: Android64
+            optional: true
+
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    continue-on-error: ${{ matrix.config.optional }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build the mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true
+          target: ${{ matrix.config.target }}
+
+  package:
+    name: Package builds
+    runs-on: ubuntu-latest
+    needs: ['build']
+
+    steps:
+      - uses: geode-sdk/build-geode-mod/combine@main
+        id: build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FRTX
+          path: ${{ steps.build.outputs.build-output }}
