@@ -15,6 +15,12 @@ class FRTXTuner : public cocos2d::CCNode {
 public:
     static FRTXTuner* get();
 
+    // Returns the tuner only if it has already been built. The keyboard
+    // listener runs for every key in the game, and must not be what causes the
+    // panel to be constructed -- building it needs the game's fonts, which are
+    // not loaded during early startup.
+    static FRTXTuner* getIfExists();
+
     // Registers the keybind and keyboard listeners. Call once at mod load.
     static void registerListeners();
 
@@ -29,7 +35,7 @@ private:
     static constexpr int kVisibleRows = 18;
 
     bool init() override;
-    void build();
+    bool build();
     void refresh();
     void moveSelection(int delta);
     void adjust(int direction, geode::KeyboardModifier mods);
@@ -41,6 +47,7 @@ private:
     bool selectable(int index) const;
 
     bool m_open = false;
+    bool m_usable = false;
     int  m_selected = 0;
     int  m_scroll = 0;
 

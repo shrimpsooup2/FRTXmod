@@ -28,9 +28,6 @@ SPEC = [
     (BOOL, "enabled", "enabled", "Enabled",
      "Master switch. When off the game renders completely untouched and no GPU memory is used.",
      None, None, True, None),
-    (INT, "preset", "preset", "Preset",
-     "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill, 4 = Performance. Anything other than Custom overrides every look setting below, so set this to 0 before tuning by hand.",
-     0, 4, 2, 1),
     (BOOL, "enable-in-editor", "enableInEditor", "In Editor",
      "Also apply the effect inside the level editor.", None, None, False, None),
     (BOOL, "exclude-ui", "excludeUI", "Exclude UI",
@@ -167,6 +164,41 @@ def f(v):
 def gen_mod_json():
     mod = json.load(open('mod.json'), object_pairs_hook=collections.OrderedDict)
     settings = collections.OrderedDict()
+
+    # Hand-written entries that do not fit the value-with-a-range shape above.
+    settings["title-quickstart"] = collections.OrderedDict(
+        [("name", "Quick Start"), ("type", "title")])
+    settings["tuner-info"] = collections.OrderedDict([
+        ("name", "Tune it in game"),
+        ("description", "Press F8 while playing a level to open an overlay with every setting "
+                        "below, and adjust them while the game runs. Arrow keys move and adjust, "
+                        "Shift is coarse, Alt is fine, R resets a value, 1-4 apply a preset, "
+                        "Escape closes."),
+        ("type", "info"),
+    ])
+    # Presets write their values into the settings once, rather than overriding
+    # them on every read. An override layer means dragging a slider silently
+    # does nothing, which is worse than no presets at all.
+    settings["presets"] = collections.OrderedDict([
+        ("name", "Apply a preset"),
+        ("description", "Writes that preset's values into the settings below. Everything stays "
+                        "editable afterwards -- a preset is a starting point, not a lock."),
+        ("type", "button"),
+        ("buttons", collections.OrderedDict([
+            ("subtle", "Subtle"),
+            ("showcase", "Showcase"),
+            ("overkill", "Overkill"),
+            ("performance", "Performance"),
+        ])),
+    ])
+    settings["tuner-key"] = collections.OrderedDict([
+        ("name", "Open Live Tuner"),
+        ("description", "Opens the in-game tuning overlay."),
+        ("type", "keybind"),
+        ("category", "universal"),
+        ("default", "F8"),
+    ])
+
     titles = 0
     for kind, key, member, label, desc, lo, hi, default, step in SPEC:
         if kind == TITLE:
@@ -189,16 +221,6 @@ def gen_mod_json():
             s["max"] = hi
             s["control"] = collections.OrderedDict([("slider", True), ("input", True)])
         settings[key] = s
-
-    # The tuner's toggle key is a keybind, which does not fit the table above.
-    settings["tuner-key"] = collections.OrderedDict([
-        ("name", "Open Live Tuner"),
-        ("description", "Opens an in-game overlay for adjusting every value below while you play. "
-                        "Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value."),
-        ("type", "keybind"),
-        ("category", "universal"),
-        ("default", "F8"),
-    ])
 
     mod['settings'] = settings
     pathlib.Path('mod.json').write_text(json.dumps(mod, indent=4) + "\n")

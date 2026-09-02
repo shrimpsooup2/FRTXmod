@@ -17,16 +17,6 @@ namespace {
     constexpr float kRowHeight = 12.0f;
     constexpr float kTextScale = 0.42f;
 
-    // Settings a preset does not override, so editing them need not drop the
-    // preset. Everything else is part of "the look" and does.
-    bool isSystemKey(char const* key) {
-        return std::strcmp(key, "enabled") == 0
-            || std::strcmp(key, "preset") == 0
-            || std::strcmp(key, "enable-in-editor") == 0
-            || std::strcmp(key, "exclude-ui") == 0
-            || std::strcmp(key, "debug-view") == 0;
-    }
-
     double readValue(FRTXParam const& p) {
         switch (p.type) {
             case FRTXParamType::Bool:
@@ -70,19 +60,26 @@ namespace {
     }
 }
 
+namespace {
+    geode::Ref<FRTXTuner> g_instance = nullptr;
+}
+
 FRTXTuner* FRTXTuner::get() {
-    static Ref<FRTXTuner> instance = nullptr;
-    if (!instance) {
+    if (!g_instance) {
         auto node = new FRTXTuner();
         if (node->init()) {
             node->autorelease();
-            instance = node;
+            g_instance = node;
         } else {
             CC_SAFE_DELETE(node);
             return nullptr;
         }
     }
-    return instance;
+    return g_instance;
+}
+
+FRTXTuner* FRTXTuner::getIfExists() {
+    return g_instance;
 }
 
 bool FRTXTuner::init() {
@@ -90,23 +87,29 @@ bool FRTXTuner::init() {
     this->setPosition(0.0f, 0.0f);
     this->setAnchorPoint(ccp(0.0f, 0.0f));
     this->setVisible(false);
-    this->build();
+    m_usable = this->build();
+    if (!m_usable) {
+        log::error("could not build the tuner overlay; is chatFont.fnt loaded?");
+    }
     m_selected = this->firstSelectable();
     return true;
 }
 
-void FRTXTuner::build() {
+bool FRTXTuner::build() {
     auto const winSize = CCDirector::sharedDirector()->getWinSize();
     float const panelHeight = std::min(winSize.height - 16.0f, kRowHeight * (kVisibleRows + 4));
 
     m_panel = CCLayerColor::create(ccc4(0, 0, 0, 190), kPanelWidth, panelHeight);
+    if (!m_panel) return false;
     m_panel->setPosition(8.0f, winSize.height - panelHeight - 8.0f);
     this->addChild(m_panel);
 
     m_highlight = CCLayerColor::create(ccc4(90, 160, 255, 70), kPanelWidth - 8.0f, kRowHeight);
+    if (!m_highlight) return false;
     m_panel->addChild(m_highlight);
 
     m_title = CCLabelBMFont::create("FRTX Live Tuner", "chatFont.fnt");
+    if (!m_title) return false;
     m_title->setAnchorPoint(ccp(0.0f, 0.5f));
     m_title->setScale(kTextScale * 1.15f);
     m_title->setPosition(6.0f, panelHeight - 10.0f);
@@ -116,12 +119,14 @@ void FRTXTuner::build() {
         float const y = panelHeight - 26.0f - i * kRowHeight;
 
         m_names[i] = CCLabelBMFont::create("", "chatFont.fnt");
+        if (!m_names[i]) return false;
         m_names[i]->setAnchorPoint(ccp(0.0f, 0.5f));
         m_names[i]->setScale(kTextScale);
         m_names[i]->setPosition(8.0f, y);
         m_panel->addChild(m_names[i]);
 
         m_values[i] = CCLabelBMFont::create("", "chatFont.fnt");
+        if (!m_values[i]) return false;
         m_values[i]->setAnchorPoint(ccp(1.0f, 0.5f));
         m_values[i]->setScale(kTextScale);
         m_values[i]->setPosition(kPanelWidth - 8.0f, y);
@@ -129,12 +134,15 @@ void FRTXTuner::build() {
     }
 
     m_hint = CCLabelBMFont::create(
-        "arrows move/adjust  shift coarse  alt fine  R reset", "chatFont.fnt");
+        "arrows move/adjust  shift coarse  alt fine  R reset  1-4 preset", "chatFont.fnt");
+    if (!m_hint) return false;
     m_hint->setAnchorPoint(ccp(0.0f, 0.5f));
     m_hint->setScale(kTextScale * 0.85f);
     m_hint->setPosition(6.0f, 8.0f);
     m_hint->setColor(ccc3(170, 170, 170));
     m_panel->addChild(m_hint);
+
+    return true;
 }
 
 int FRTXTuner::firstSelectable() const {
@@ -150,6 +158,7 @@ bool FRTXTuner::selectable(int index) const {
 }
 
 void FRTXTuner::toggle() {
+    if (!m_usable) return;
     m_open = !m_open;
     this->setVisible(m_open);
     if (m_open) {
@@ -175,12 +184,6 @@ void FRTXTuner::refresh() {
     if (m_selected < m_scroll) m_scroll = m_selected;
     if (m_selected >= m_scroll + kVisibleRows) m_scroll = m_selected - kVisibleRows + 1;
     m_scroll = std::clamp(m_scroll, 0, std::max(0, kFRTXParamCount - kVisibleRows));
-
-    auto const presetIsActive = Mod::get()->getSettingValue<int64_t>("preset") != 0;
-    m_title->setString(presetIsActive
-        ? "FRTX Tuner  (preset active, editing unlocks)"
-        : "FRTX Live Tuner");
-    m_title->setColor(presetIsActive ? ccc3(255, 210, 120) : ccc3(255, 255, 255));
 
     float const panelHeight = m_panel->getContentSize().height;
 
@@ -235,13 +238,6 @@ void FRTXTuner::adjust(int direction, KeyboardModifier mods) {
         writeValue(p, std::clamp(readValue(p) + step * direction, p.min, p.max));
     }
 
-    // Editing a look control while a preset is active would silently do
-    // nothing, because the preset overwrites it every frame. Drop to Custom so
-    // the change the user just made is the one they see.
-    if (!isSystemKey(p.key) && Mod::get()->getSettingValue<int64_t>("preset") != 0) {
-        Mod::get()->setSettingValue<int64_t>("preset", 0);
-    }
-
     this->refresh();
 }
 
@@ -266,6 +262,10 @@ bool FRTXTuner::handleKey(KeyboardInputData& data) {
         case KEY_PageDown:   this->moveSelection(1); this->moveSelection(1);
                              this->moveSelection(1); return true;
         case KEY_R:          this->resetSelected(); return true;
+        case KEY_One:        FRTXConfig::applyPreset(FRTXPreset::Subtle); this->refresh(); return true;
+        case KEY_Two:        FRTXConfig::applyPreset(FRTXPreset::Showcase); this->refresh(); return true;
+        case KEY_Three:      FRTXConfig::applyPreset(FRTXPreset::Overkill); this->refresh(); return true;
+        case KEY_Four:       FRTXConfig::applyPreset(FRTXPreset::Performance); this->refresh(); return true;
         case KEY_Escape:     this->toggle(); return true;
         default:             return false;
     }
@@ -281,7 +281,18 @@ void FRTXTuner::registerListeners() {
     // Swallowing the arrow keys while the panel is open is the whole point:
     // otherwise adjusting a slider also makes the player jump.
     KeyboardInputEvent().listen([](KeyboardInputData& data) -> bool {
-        auto tuner = FRTXTuner::get();
+        auto tuner = FRTXTuner::getIfExists();
         return tuner && tuner->handleKey(data);
     }).leak();
+
+    // Applying a preset writes its values into the settings, so every slider
+    // stays live afterwards.
+    ButtonSettingPressedEventV3(Mod::get(), "presets")
+        .listen([](std::string_view button) -> bool {
+            if (button == "subtle") FRTXConfig::applyPreset(FRTXPreset::Subtle);
+            else if (button == "showcase") FRTXConfig::applyPreset(FRTXPreset::Showcase);
+            else if (button == "overkill") FRTXConfig::applyPreset(FRTXPreset::Overkill);
+            else if (button == "performance") FRTXConfig::applyPreset(FRTXPreset::Performance);
+            return false;
+        }).leak();
 }

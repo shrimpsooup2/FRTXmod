@@ -32,7 +32,7 @@ namespace {
     // The presets are the point of the mod for most people, so each carries the
     // whole look. A set of values that agree with each other beats forty-odd
     // controls that are each individually reasonable.
-    void applyPreset(FRTXConfig& cfg, FRTXPreset preset) {
+    void presetInto(FRTXConfig& cfg, FRTXPreset preset) {
         if (preset == FRTXPreset::Custom) return;
 
         // Everything the presets share. Colours and the light ray shape are
@@ -116,6 +116,7 @@ namespace {
                 cfg.contrast = 1.08f;
                 cfg.saturation = 1.18f;
                 cfg.clarity = 0.0f;
+                cfg.clarityTaps = 4;
                 cfg.blackPoint = 0.040f;
                 cfg.splitShadow = 0.15f;
                 cfg.splitHighlight = 0.0f;
@@ -159,11 +160,6 @@ FRTXConfig FRTXConfig::read() {
 #define FRTX_COLOR(key, member, label, r, g, b)           cfg.member = readColor(key, r, g, b);
 #include "FRTXParams.inc"
 
-    // A preset overrides the look controls. `enabled`, the debug view and the
-    // platform-ish toggles stay under the user's hand so a preset can never
-    // lock them out.
-    applyPreset(cfg, static_cast<FRTXPreset>(cfg.preset));
-
     // Passes that are on but contribute nothing are just wasted bandwidth.
     if (cfg.bloomIntensity <= 0.0f && cfg.streakIntensity <= 0.0f && cfg.raysIntensity <= 0.0f) {
         cfg.bloomEnabled = false;
@@ -176,6 +172,26 @@ namespace {
     FRTXConfig g_cached;
     bool g_cacheValid = false;
     unsigned g_generation = 1;
+}
+
+void FRTXConfig::applyPreset(FRTXPreset preset) {
+    // Start from what the user currently has, so settings the preset does not
+    // mention -- the master switch, the debug view, colour tints -- survive.
+    FRTXConfig cfg = current();
+    presetInto(cfg, preset);
+
+    auto mod = Mod::get();
+#define FRTX_FLOAT(key, member, label, lo, hi, def, step) \
+    mod->setSettingValue<double>(key, static_cast<double>(cfg.member));
+#define FRTX_INT(key, member, label, lo, hi, def, step) \
+    mod->setSettingValue<int64_t>(key, static_cast<int64_t>(cfg.member));
+#define FRTX_BOOL(key, member, label, def) \
+    mod->setSettingValue<bool>(key, cfg.member);
+// Colours are the user's own choice; no preset speaks for them.
+#define FRTX_COLOR(key, member, label, r, g, b)
+#include "FRTXParams.inc"
+
+    invalidate();
 }
 
 FRTXConfig const& FRTXConfig::current() {

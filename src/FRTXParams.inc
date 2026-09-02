@@ -27,7 +27,6 @@
 
 FRTX_SECTION("General")
 FRTX_BOOL("enabled", enabled, "Enabled", true)
-FRTX_INT("preset", preset, "Preset", 0, 4, 2, 1)
 FRTX_BOOL("enable-in-editor", enableInEditor, "In Editor", false)
 FRTX_BOOL("exclude-ui", excludeUI, "Exclude UI", false)
 FRTX_INT("debug-view", debugView, "Debug View", 0, 4, 0, 1)

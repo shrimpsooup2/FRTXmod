@@ -42,6 +42,12 @@ struct FRTXConfig {
     // The cached snapshot. Re-reads only after invalidate().
     static FRTXConfig const& current();
 
+    // Writes a preset's values into the settings, once. Presets deliberately
+    // do NOT override anything at read time: an override layer means dragging
+    // a slider silently does nothing, which is far worse than no presets.
+    // System settings the presets do not mention keep their current values.
+    static void applyPreset(FRTXPreset preset);
+
     // Called by the settings-changed listener. Geode dispatches that event
     // synchronously from setValue, so a write through either the settings menu
     // or the tuner has already invalidated this by the time it returns.

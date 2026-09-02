@@ -5,13 +5,40 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.5.0",
+    "version": "v0.6.0",
     "developers": [
         "shrimpsooup2"
     ],
     "description": "RTX-style post processing for Geometry Dash: emissive bloom, light rays, clarity and cinematic grading, with a live in-game tuner.",
     "repository": "https://github.com/shrimpsooup2/FRTXmod",
     "settings": {
+        "title-quickstart": {
+            "name": "Quick Start",
+            "type": "title"
+        },
+        "tuner-info": {
+            "name": "Tune it in game",
+            "description": "Press F8 while playing a level to open an overlay with every setting below, and adjust them while the game runs. Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value, 1-4 apply a preset, Escape closes.",
+            "type": "info"
+        },
+        "presets": {
+            "name": "Apply a preset",
+            "description": "Writes that preset's values into the settings below. Everything stays editable afterwards -- a preset is a starting point, not a lock.",
+            "type": "button",
+            "buttons": {
+                "subtle": "Subtle",
+                "showcase": "Showcase",
+                "overkill": "Overkill",
+                "performance": "Performance"
+            }
+        },
+        "tuner-key": {
+            "name": "Open Live Tuner",
+            "description": "Opens the in-game tuning overlay.",
+            "type": "keybind",
+            "category": "universal",
+            "default": "F8"
+        },
         "title-1": {
             "name": "General",
             "type": "title"
@@ -21,18 +48,6 @@
             "description": "Master switch. When off the game renders completely untouched and no GPU memory is used.",
             "type": "bool",
             "default": true
-        },
-        "preset": {
-            "name": "Preset",
-            "description": "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill, 4 = Performance. Anything other than Custom overrides every look setting below, so set this to 0 before tuning by hand.",
-            "type": "int",
-            "default": 2,
-            "min": 0,
-            "max": 4,
-            "control": {
-                "slider": true,
-                "input": true
-            }
         },
         "enable-in-editor": {
             "name": "In Editor",
@@ -537,13 +552,6 @@
             "description": "Adds an imperceptible amount of noise to hide colour banding in smooth gradients.",
             "type": "bool",
             "default": true
-        },
-        "tuner-key": {
-            "name": "Open Live Tuner",
-            "description": "Opens an in-game overlay for adjusting every value below while you play. Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value.",
-            "type": "keybind",
-            "category": "universal",
-            "default": "F8"
         }
     }
 }

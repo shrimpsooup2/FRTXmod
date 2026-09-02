@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.6.0
+
+**Fixes settings not working.** The preset was a value that got re-applied on
+every read, and it defaulted to Showcase, so out of the box almost every slider
+in the settings menu did nothing at all: you moved it, and the preset stamped
+over your value again immediately. That was a design mistake, not a small bug.
+
+- **Presets are now buttons that write their values in once.** Subtle,
+  Showcase, Overkill and Performance appear at the top of the settings. Nothing
+  overrides anything at read time any more, so every control is live at all
+  times. Colour tints and the master switches are left alone by presets.
+- `mod.json`'s defaults are the Showcase values, and `tools/check.py` now
+  asserts that, so a fresh install and a Showcase press cannot diverge.
+- **Presets from the tuner** too: keys 1-4.
+- **The tuner can no longer be built by a stray keypress.** Its keyboard
+  listener runs for every key in the game and used to construct the panel on
+  the first one, which could happen before the game's fonts were loaded. It now
+  only handles keys once the panel exists, every label creation is checked, and
+  a failed build disables the overlay instead of crashing.
+- A quick-start block at the top of the settings explains the F8 tuner.
+
 ## v0.5.0
 
 Performance pass. The per-frame pixel work is irreducible — the glow depends on

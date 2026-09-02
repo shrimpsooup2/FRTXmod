@@ -10,24 +10,35 @@ and the result is graded before it reaches your screen.
 
 ## Start here
 
-Set **Preset** and leave everything else alone:
+A fresh install already looks like **Showcase**. The preset buttons at the top
+of the settings write their values in for you:
 
-- **1 — Subtle**: the look without the drama. Safe for actually playing.
-- **2 — Showcase** *(default)*: what these levels look like in a video.
-- **3 — Overkill**: too much, on purpose.
-- **4 — Performance**: for keeping frames. Smaller bloom buffers, one fewer
-  blur level, and everything that costs fill rate switched off.
-- **0 — Custom**: every slider is yours.
+- **Subtle**: the look without the drama. Safe for actually playing.
+- **Showcase**: what these levels look like in a video.
+- **Overkill**: too much, on purpose.
+- **Performance**: for keeping frames. Smaller bloom buffers, one fewer blur
+  level, and everything that costs fill rate switched off.
+
+A preset is a starting point, not a lock. It writes its values into the
+settings once, and every slider stays editable afterwards.
 
 ## Tune it live
 
 Press **F8** in a level to open an overlay listing all 44 controls, and adjust
-them while the game is running. Arrow keys move and adjust, Shift is coarse, Alt
-is fine, R resets a value, Escape closes. The key is rebindable.
+them while the game is running. The key is rebindable.
+
+| Key | Does |
+|---|---|
+| Up / Down | move between settings |
+| Left / Right | adjust the selected value |
+| Shift | coarse, 10x the step |
+| Alt | fine, a tenth of the step |
+| R | reset the selected value |
+| 1 - 4 | apply Subtle / Showcase / Overkill / Performance |
+| Escape | close |
 
 Arrow keys are swallowed while the panel is open, so tuning does not also make
-you jump. Editing anything while a preset is active switches to Custom, because
-otherwise the preset would just overwrite your change.
+you jump.
 
 ## What it does
 

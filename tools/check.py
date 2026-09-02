@@ -6,7 +6,8 @@ otherwise only surface on a Windows CI runner minutes later:
 
   1. mod.json and src/FRTXParams.inc are still what tools/gen_settings.py
      produces, so nobody has hand-edited a generated file.
-  2. Every setting default sits inside its own min/max.
+  2. Every setting default sits inside its own min/max, and matches the
+     Showcase preset so a fresh install and a Showcase press agree.
   3. Every uniform the C++ sets exists in the shader it targets, and vice
      versa, with matching component counts.
   4. Every GLSL blob is brace and paren balanced.
@@ -55,6 +56,60 @@ def check_setting_defaults():
             problems.append(
                 f"setting '{key}': default {spec['default']} outside "
                 f"[{spec['min']}, {spec['max']}]")
+
+
+def check_defaults_match_showcase():
+    """A fresh install must look exactly like pressing the Showcase button.
+
+    Presets no longer override anything at read time -- they write values into
+    the settings once -- so mod.json's defaults are the only thing deciding how
+    the mod looks before the user touches it. If they drift from the Showcase
+    preset, a new install and a Showcase press produce different pictures.
+    """
+    cpp = (ROOT / 'src/FRTXConfig.cpp').read_text()
+    inc = (ROOT / 'src/FRTXParams.inc').read_text()
+    mod = json.loads((ROOT / 'mod.json').read_text())
+
+    key_for_member = {
+        member: key for key, member in
+        re.findall(r'FRTX_(?:FLOAT|INT|BOOL)\("([^"]+)",\s*(\w+),', inc)
+    }
+
+    body = re.search(r'void presetInto\(.*?\n    \}\n', cpp, re.S)
+    if not body:
+        problems.append("could not find presetInto() to check preset defaults")
+        return
+    body = body.group(0)
+
+    shared = body.split('switch (preset)')[0]
+    showcase = re.search(r'case FRTXPreset::Showcase:(.*?)return;', body, re.S)
+    if not showcase:
+        problems.append("could not find the Showcase preset")
+        return
+
+    assignments = {}
+    for chunk in (shared, showcase.group(1)):
+        for member, value in re.findall(r'cfg\.(\w+)\s*=\s*([^;]+);', chunk):
+            assignments[member] = value.strip()
+
+    for member, raw in assignments.items():
+        key = key_for_member.get(member)
+        if key is None:
+            continue  # not a generated setting (colours, etc)
+        spec = mod['settings'].get(key)
+        if spec is None:
+            problems.append(f"preset sets {member} but '{key}' is not in mod.json")
+            continue
+        if raw in ('true', 'false'):
+            wanted = (raw == 'true')
+            if spec['default'] is not wanted:
+                problems.append(
+                    f"'{key}': mod.json default {spec['default']} != Showcase {wanted}")
+        else:
+            wanted = float(raw.rstrip('f'))
+            if abs(float(spec['default']) - wanted) > 1e-6:
+                problems.append(
+                    f"'{key}': mod.json default {spec['default']} != Showcase {wanted}")
 
 
 def check_shader_uniforms():
@@ -118,6 +173,7 @@ def check_shader_uniforms():
 def main():
     check_generated_files_are_current()
     check_setting_defaults()
+    check_defaults_match_showcase()
     check_shader_uniforms()
 
     if problems:

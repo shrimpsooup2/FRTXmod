@@ -91,17 +91,26 @@ adjust them while the game runs.
 | Shift + Left/Right | coarse, 10x the step |
 | Alt + Left/Right | fine, a tenth of the step |
 | R | reset the selected value to its default |
+| 1 - 4 | apply Subtle / Showcase / Overkill / Performance |
 | Escape | close |
 
 Arrow keys are swallowed while the panel is open, so adjusting a slider does not
-also make the player jump. Editing any look setting while a preset is active
-drops the preset to Custom — otherwise the preset would overwrite your change on
-the very next frame.
+also make the player jump.
 
 ## Presets
 
-Start with **Preset**, not with the sliders: `1` Subtle, `2` Showcase (default),
-`3` Overkill, `4` Performance, `0` Custom.
+Four buttons at the top of the settings: Subtle, Showcase, Overkill,
+Performance. Pressing one **writes its values into the settings**; it does not
+install an override.
+
+That distinction is the whole point. Presets used to be a value that
+`FRTXConfig::read()` re-applied on every read, which meant that with the default
+preset active — which it was, out of the box — dragging almost any slider in the
+settings menu silently did nothing. An override layer that quietly wins over the
+user's own input is worse than having no presets at all. Now `mod.json`'s
+defaults are the Showcase values, a preset press stamps values in, and every
+control is live at all times. `tools/check.py` asserts the defaults still equal
+the Showcase preset, so a fresh install and a Showcase press cannot diverge.
 
 ## Performance
 
