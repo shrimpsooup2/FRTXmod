@@ -1,123 +1,142 @@
 # FRTX
 
 A [Geode](https://geode-sdk.org) mod that adds RTX-style post processing to
-Geometry Dash: bloom, filmic tonemapping and colour grading.
+Geometry Dash: emissive bloom, anamorphic streaks, light rays, local contrast
+and cinematic colour grading — with an in-game tuner for adjusting all of it
+while you play.
 
-There is no ray tracing here and there cannot be — GD renders through
-cocos2d-x on OpenGL ES 2.0, with no depth buffer, no normals and no float
-render targets to work with. What this mod does is reproduce the *visual
-signature* people read as "RTX" entirely in screen space.
+There is no ray tracing here and there cannot be. GD renders through cocos2d-x
+on OpenGL ES 2.0, with no depth buffer, no normals and no float render targets.
+What this mod does is reproduce the *visual signature* people read as "RTX"
+entirely in screen space.
+
+Targets Geode 5.10.1 and GD 2.2081 on Windows.
 
 ## How it works
 
 ```
-scene renders  ->  [capture target]
-                        |  bright pass, saturation weighted + downsample
-                   [bloom level 0]  --box-->  [level 1]  --box-->  [level 2]
-                        |     \                  |                    |
-                   H+V gaussian \           H+V gaussian         H+V gaussian
-                        |        \               |                    |
-                        |    3x horizontal-only blur, steps 1/4/16
-                        |         -> [streak]     |                    |
-                        \____________ | __________|____________________/
-                                      v
-   capture -> clarity -> + bloom + streak -> exposure -> ACES -> black point
-           -> white balance -> split tone -> contrast -> saturation
-           -> vignette -> grain/dither -> screen
+GJBaseGameLayer::visit()
+  beginCapture()  ->  [capture target]
+      ... the whole game layer renders into it ...
+  endCapture()
+        |  bright pass, saturation weighted + downsample
+   [bloom level 0] --box--> [level 1] --box--> [level 2]
+        |     \       \            |                 |
+   H+V gaussian \       \     H+V gaussian      H+V gaussian
+        |        \       \_ radial march from the light origin -> [rays]
+        |    3x horizontal-only blur, steps 1/4/16 -> [streak]
+        \_________________ | ______|_________________|
+                           v
+   capture -> clarity -> + bloom + streak + rays -> exposure -> ACES
+           -> black point -> white balance -> split tone -> contrast
+           -> saturation -> vignette -> grain/dither -> screen
 ```
-
-### Matching the showcase look
-
-Three things separate this from a generic bloom filter, and they matter more
-than the bloom strength does:
-
-- **The bright pass is weighted by saturation.** GD's neon, glow objects and
-  particles are strongly saturated; skies and background gradients are bright
-  but washed out. Weighting by saturation is the closest we can get to
-  object-aware emission without reading GD's object data, and it is what stops
-  the whole background from glowing. Pure whites are exempted, since a lot of GD
-  glow is white.
-- **Halo width is a control of its own.** How fast the per level bloom weights
-  fall off decides how large the glow reads, independently of how bright it is.
-  Showcase footage has big soft halos around every light source, which needs a
-  flat falloff, not more intensity.
-- **Clarity, clamped.** An unsharp mask against a ring of wide taps lifts local
-  contrast, but the difference is clamped before it is added back: otherwise the
-  dark side of a bright edge is pushed darker still and every glowing outline
-  picks up a dark ring, which is the artefact that gives a sharpening filter
-  away.
-
-Anamorphic streaks (three chained horizontal-only blurs, step growing 4x each
-time) are implemented and available, but off in the Showcase preset — the
-reference footage glows radially and does not streak.
 
 ### Capturing the frame
 
-GD offers no clean "wrap the whole frame" hook. `CCDirector::drawScene` swaps
-buffers before we would get a chance to composite, and hooking `CCNode::visit`
-would fire for every node in the game.
+GD offers no clean "wrap the whole frame" hook: `CCDirector::drawScene` swaps
+buffers before a composite would be possible, and `CCNode::visit` would fire for
+every node in the game.
 
-So instead the mod brackets the gameplay layer with two sibling nodes inside its
-scene: a capture node at the lowest possible z-order and a composite node at the
-highest. cocos visits children in z-order, so everything drawn in between lands
-in our render target.
+`GJBaseGameLayer::visit()` is the answer. It is a real virtual override in the
+bindings, and both `PlayLayer` and `LevelEditorLayer` inherit it — so a single
+hook captures exactly the game, in one function, with the render target's
+`begin()`/`end()` pair trivially balanced, and editor support comes free.
 
-`src/nodes/FRTXNodes.cpp` holds both ends of that bracket, and everything else
-about the technique is documented at the top of
-`src/render/FRTXPostProcessor.hpp`. Two constraints are worth knowing before
-touching that code:
+Two constraints are worth knowing before touching `src/render/`:
 
-- **The bracket nodes must keep an identity transform.** `CCRenderTexture`
-  pushes matrices in `begin()` and pops them in `end()`, and here those calls
-  land in two different `visit()` bodies. The push/pop counts still balance, but
-  only an identity transform leaves the modelview the scene renders under
-  unchanged.
-- **The capture target must stay the same size as the screen.**
+- **The capture target must match the screen size.**
   `CCRenderTexture::begin()` rewrites the projection to fit whatever size it is
   handed, so a downscaled capture would rescale the scene rather than sample it
-  more coarsely. Only the bloom pyramid is allowed to shrink; that is what
-  *Bloom: Resolution Scale* controls.
+  more coarsely. Only the bloom pyramid shrinks; that is what *Bloom:
+  Resolution Scale* controls.
+- **Passes must not depend on cocos' projection.** Every pass draws a
+  fullscreen quad whose positions are already in clip space and ignores
+  `CC_MVPMatrix`. Texture coordinates arrive in normalised screen space and each
+  shader scales them by the uv extent of the target it reads, which stays
+  correct when a driver lacks NPOT support and cocos pads a render texture up to
+  a power of two.
 
-### Passes
+### Matching the showcase look
 
-Every pass draws one fullscreen triangle strip whose positions are already in
-clip space, so the vertex shader ignores `CC_MVPMatrix` entirely. That makes the
-chain immune to whatever projection cocos has set up at the time. Texture
-coordinates arrive in normalised screen space and each shader scales them by the
-uv extent of the target it reads, which keeps things correct even when a driver
-lacks NPOT support and cocos pads a render texture up to a power of two.
+Four things separate this from a generic bloom filter, and they matter more than
+bloom strength does:
+
+- **The bright pass is weighted by saturation.** GD's neon, glow objects and
+  particles are strongly saturated; skies and background gradients are bright
+  but washed out. Weighting by saturation is the closest thing to object-aware
+  emission available without reading GD's object data, and it is what stops the
+  whole background from glowing. Pure whites are exempted, since a lot of GD
+  glow is white.
+- **Halo width is its own control.** How fast the per level bloom weights fall
+  off decides how *large* the glow reads, independently of how *bright* it is.
+  Showcase footage has big soft halos, which needs a flat falloff, not more
+  intensity.
+- **Clarity, clamped.** An unsharp mask against a ring of wide taps lifts local
+  contrast, but the difference is clamped before it is added back: otherwise the
+  dark side of a bright edge is pushed darker still and every glowing outline
+  picks up a dark ring, the artefact that gives a sharpening filter away.
+- **A grade that stays out of the way.** These levels carry their own palette.
+  The default grade is near-neutral by design; only the shadows are cooled.
+
+## The live tuner
+
+Press **F8** in a level (rebindable) for an overlay listing every setting, and
+adjust them while the game runs.
+
+| Key | Does |
+|---|---|
+| Up / Down | move between settings |
+| Left / Right | adjust the selected value |
+| Shift + Left/Right | coarse, 10x the step |
+| Alt + Left/Right | fine, a tenth of the step |
+| R | reset the selected value to its default |
+| Escape | close |
+
+Arrow keys are swallowed while the panel is open, so adjusting a slider does not
+also make the player jump. Editing any look setting while a preset is active
+drops the preset to Custom — otherwise the preset would overwrite your change on
+the very next frame.
+
+## Presets
+
+Start with **Preset**, not with the sliders: `1` Subtle, `2` Showcase (default),
+`3` Overkill, `0` Custom.
+
+## Settings are generated
+
+There are 52 settings, and `mod.json`, `FRTXConfig`'s fields and the tuner's
+table all have to agree about every one of them. Rather than maintain that by
+hand, `tools/gen_settings.py` holds the spec and generates `mod.json` plus
+`src/FRTXParams.inc`, an X-macro list the config reader and the tuner are both
+built from. To add or change a setting, edit the spec and re-run it:
+
+```sh
+python3 tools/gen_settings.py
+python3 tools/check.py
+```
+
+`tools/check.py` verifies the generated files are current, that every default
+sits inside its own range, and that every shader uniform the C++ sets exists in
+the shader it targets with a matching component count. CI runs it before the
+build, because none of it needs a compiler and all of it would otherwise only
+surface minutes later on a Windows runner.
 
 ## Building
-
-The mod is built with the [Geode CLI](https://docs.geode-sdk.org/getting-started/):
 
 ```sh
 geode build
 ```
 
-CI builds it on every push (`.github/workflows/build.yml`) and uploads the
-packaged `.geode` as a workflow artifact.
+CI builds on every push and uploads the packaged `.geode` as a workflow
+artifact.
 
 ## Platform support
 
 Windows is the supported target and the one listed in `mod.json`. The rendering
 code is deliberately portable — GLES2-safe GLSL with no version directive, no
 desktop-only GL calls — and CI also builds macOS and Android for information,
-but those builds are allowed to fail and the platforms are not shipped yet.
-
-## Roadmap
-
-- [x] Frame capture and composite
-- [x] Bloom
-- [x] Tonemapping, colour grading, lens effects
-- [x] Emissive-biased bloom, anamorphic streaks, clarity, split toning
-- [x] Presets
-- [ ] True object-aware emissive buffer, driven by GD's glow data rather than by
-      screen saturation
-- [ ] Light rays / god rays
-- [ ] In-game settings popup with live sliders and presets
-- [ ] Editor support
-- [ ] Option to exclude the UI layer from the effect
+but those jobs are allowed to fail and the platforms are not shipped yet.
 
 ## Regenerating the icon
 
@@ -126,3 +145,17 @@ but those builds are allowed to fail and the platforms are not shipped yet.
 ```sh
 python3 tools/make_logo.py
 ```
+
+## Roadmap
+
+- [x] Frame capture and composite
+- [x] Bloom, tonemapping, colour grading, lens effects
+- [x] Emissive-biased bloom, anamorphic streaks, clarity, split toning
+- [x] Presets
+- [x] Light rays
+- [x] Editor support
+- [x] Option to lift the UI layer out of the effect
+- [x] In-game live tuner
+- [ ] True object-aware emissive buffer, driven by GD's glow data rather than by
+      screen saturation
+- [ ] Save and load named custom presets

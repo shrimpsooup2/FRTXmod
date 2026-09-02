@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.4.0
+
+Verified against the real Geode SDK and GD bindings for the first time, which
+corrected some guesses and unlocked the rest of the roadmap.
+
+- **Now targets Geode 5.10.1 and GD 2.2081.** The previous `4.0.0` / `2.2074`
+  would not have loaded.
+- **Frame capture is now a single hook on `GJBaseGameLayer::visit()`**, which
+  replaces the two-node z-order sandwich entirely. `PlayLayer::update` does not
+  exist in the bindings and never would have compiled; `visit()` does, and both
+  `PlayLayer` and `LevelEditorLayer` inherit it, so the begin/end pair now lives
+  in one function and editor support comes free.
+- **Live in-game tuner** on F8, rebindable. Lists all 44 controls and edits them
+  while the game runs, swallowing the arrow keys so tuning does not make you
+  jump.
+- **Light rays**: a radial march from a fixed point or from the player, with
+  density, decay, weight, sample count and tint.
+- **Editor support**, off by default.
+- **Option to lift the UI out of the effect**, so the attempt counter and
+  progress bar stay crisp.
+- **Per-effect colour tints** for bloom, streaks and rays; **vignette roundness
+  and softness**.
+- **Settings are generated from one spec.** `tools/gen_settings.py` produces
+  both `mod.json` and the X-macro list the config reader and tuner are built
+  from, so 52 settings cannot drift apart. `tools/check.py` verifies that, plus
+  every default's range and every shader uniform, and CI runs it before the
+  build.
+
 ## v0.3.0
 
 Retuned against an actual frame of an RTX showcase level, which contradicted

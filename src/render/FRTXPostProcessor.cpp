@@ -25,7 +25,7 @@ PostProcessor& PostProcessor::get() {
     return instance;
 }
 
-bool PostProcessor::beginCapture() {
+bool PostProcessor::beginCapture(FrameInfo const& info) {
     if (m_capturing) {
         // The composite node never ran: it was removed from the scene, or the
         // scene changed, in the middle of a frame. Close the target now so the
@@ -42,6 +42,7 @@ bool PostProcessor::beginCapture() {
     if (!ensureTargets(cfg)) return false;
 
     m_frameConfig = cfg;
+    m_frameInfo = info;
     m_scene.rt->beginWithClear(0.0f, 0.0f, 0.0f, 0.0f);
     m_capturing = true;
     return true;
@@ -63,6 +64,9 @@ void PostProcessor::endCapture() {
         if (cfg.streaksEnabled() && m_streakValid) {
             buildStreaks(cfg);
         }
+        if (cfg.raysEnabled() && m_raysValid) {
+            buildRays(cfg);
+        }
     }
     present(cfg);
 }
@@ -83,6 +87,7 @@ bool PostProcessor::ensurePrograms() {
         m_prefilter.init("prefilter", shaders::PREFILTER) &&
         m_downsample.init("downsample", shaders::DOWNSAMPLE) &&
         m_blur.init("blur", shaders::BLUR) &&
+        m_rayProgram.init("rays", shaders::RAYS) &&
         m_composite.init("composite", shaders::COMPOSITE);
 
     if (!ok) {
@@ -90,6 +95,7 @@ bool PostProcessor::ensurePrograms() {
         m_prefilter.destroy();
         m_downsample.destroy();
         m_blur.destroy();
+        m_rayProgram.destroy();
         m_composite.destroy();
         m_programsFailed = true;
         return false;
@@ -172,6 +178,18 @@ bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
         }
     }
 
+    m_raysValid = false;
+    if (cfg.raysEnabled() && m_activeLevels > 0) {
+        int const rw = std::max(4, m_bloom[0].widthPoints / 2);
+        int const rh = std::max(4, m_bloom[0].heightPoints / 2);
+        if (m_rays.create(rw, rh)) {
+            m_raysValid = true;
+        } else {
+            log::warn("could not allocate the light ray buffer, rays are off");
+            m_rays.destroy();
+        }
+    }
+
     m_targetsValid = true;
     m_targetConfig = cfg;
     m_targetWidth = winSize.width;
@@ -193,6 +211,8 @@ void PostProcessor::releaseTargets() {
     m_streak[0].destroy();
     m_streak[1].destroy();
     m_streakValid = false;
+    m_rays.destroy();
+    m_raysValid = false;
     m_activeLevels = 0;
     m_targetsValid = false;
 }
@@ -264,6 +284,33 @@ void PostProcessor::buildStreaks(FRTXConfig const& cfg) {
     blurPass(m_streak[0], m_streak[1], m_streak[1].texelW * length * 16.0f, 0.0f);
 }
 
+void PostProcessor::buildRays(FRTXConfig const& cfg) {
+    float originX = cfg.raysOriginX;
+    float originY = cfg.raysOriginY;
+    if (cfg.raysOriginMode == 1 && m_frameInfo.hasPlayer) {
+        originX = m_frameInfo.playerX;
+        originY = m_frameInfo.playerY;
+    }
+
+    // Keeps the overall brightness roughly stable as the sample count and per
+    // sample weight are dragged around, so those read as shape controls rather
+    // than as another intensity slider.
+    float const samples = static_cast<float>(cfg.raysSamples);
+    float const normalisation = 1.0f / (1.0f + cfg.raysWeight * samples * 0.5f);
+
+    m_rays.rt->begin();
+    m_rayProgram.use();
+    m_rayProgram.set1i("u_source", 0);
+    m_rayProgram.set2f("u_sourceUV", m_bloom[0].uvW, m_bloom[0].uvH);
+    m_rayProgram.set2f("u_origin", originX, originY);
+    m_rayProgram.set4f("u_params", cfg.raysDensity, cfg.raysDecay, cfg.raysWeight, normalisation);
+    m_rayProgram.set1f("u_samples", samples);
+    bindTexture(0, m_bloom[0].textureName());
+    setReplaceBlend();
+    drawFullscreenQuad();
+    m_rays.rt->end();
+}
+
 void PostProcessor::present(FRTXConfig const& cfg) {
     // How fast the per level weights fall off decides how big the halo reads.
     // A steep falloff keeps the glow tight around the object; a flat one lets
@@ -287,11 +334,12 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set1i("u_bloom1", 2);
     m_composite.set1i("u_bloom2", 3);
     m_composite.set1i("u_streakTex", 4);
+    m_composite.set1i("u_raysTex", 5);
     m_composite.set2f("u_sceneUV", m_scene.uvW * m_sceneFillX, m_scene.uvH * m_sceneFillY);
 
     for (int i = 0; i < kMaxBloomLevels; ++i) {
         // Sampling a texture unit with nothing bound is undefined, so unused
-        // bloom slots point at the scene and are multiplied by a zero weight.
+        // slots point at the scene and are multiplied by a zero weight.
         bool const used = i < m_activeLevels && weights[i] > 0.0f;
         Target const& source = used ? m_bloom[i] : m_scene;
         m_composite.set2f(kBloomUVNames[i], source.uvW, source.uvH);
@@ -303,21 +351,40 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set2f("u_streakUV", streakSource.uvW, streakSource.uvH);
     bindTexture(4, streakSource.textureName());
 
+    bool const rays = cfg.raysEnabled() && m_raysValid;
+    Target const& raySource = rays ? m_rays : m_scene;
+    m_composite.set2f("u_raysUV", raySource.uvW, raySource.uvH);
+    bindTexture(5, raySource.textureName());
+
     // Bind unit 0 last so cocos gets the texture unit back the way it expects.
     bindTexture(0, m_scene.textureName());
 
-    // A faint cool tint is what reads as an anamorphic lens rather than as more
-    // bloom; keeping it mild lets coloured streaks stay their own colour.
     float const streakAmount = streaks ? cfg.streakIntensity : 0.0f;
     m_composite.set3f("u_streak",
-        0.80f * streakAmount, 0.88f * streakAmount, 1.00f * streakAmount);
+        cfg.streakTint.r * streakAmount,
+        cfg.streakTint.g * streakAmount,
+        cfg.streakTint.b * streakAmount);
+
+    float const rayAmount = rays ? cfg.raysIntensity : 0.0f;
+    m_composite.set3f("u_rays",
+        cfg.raysTint.r * rayAmount,
+        cfg.raysTint.g * rayAmount,
+        cfg.raysTint.b * rayAmount);
 
     m_composite.set4f("u_bloom", weights[0], weights[1], weights[2],
         cfg.bloomEnabled ? cfg.bloomIntensity : 0.0f);
+    m_composite.set3f("u_bloomTint", cfg.bloomTint.r, cfg.bloomTint.g, cfg.bloomTint.b);
     m_composite.set4f("u_tone", cfg.exposure, cfg.contrast, cfg.saturation,
         cfg.tonemapEnabled ? 1.0f : 0.0f);
-    m_composite.set4f("u_lens", cfg.vignette, cfg.chromatic, cfg.grain,
-        cfg.dither ? 1.0f : 0.0f);
+    m_composite.set4f("u_lens", cfg.chromatic, cfg.grain, cfg.dither ? 1.0f : 0.0f, 0.0f);
+
+    // Softness widens the band the darkening fades across, anchored at the
+    // corners so raising it eats further into the frame rather than moving the
+    // edge of the effect.
+    float const outer = 0.9f;
+    float const inner = outer - (0.15f + 0.6f * cfg.vignetteSoftness);
+    m_composite.set4f("u_vignette", cfg.vignette, cfg.vignetteRoundness, inner, outer);
+
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
     m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);

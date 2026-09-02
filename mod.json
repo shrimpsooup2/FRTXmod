@@ -1,26 +1,30 @@
 {
-    "geode": "4.0.0",
+    "geode": "5.10.1",
     "gd": {
-        "win": "2.2074"
+        "win": "2.2081"
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.3.0",
+    "version": "v0.4.0",
     "developers": [
         "shrimpsooup2"
     ],
-    "description": "RTX-style post processing for Geometry Dash: emissive bloom, clarity and cinematic colour grading.",
+    "description": "RTX-style post processing for Geometry Dash: emissive bloom, light rays, clarity and cinematic grading, with a live in-game tuner.",
     "repository": "https://github.com/shrimpsooup2/FRTXmod",
     "settings": {
+        "title-1": {
+            "name": "General",
+            "type": "title"
+        },
         "enabled": {
-            "name": "Enable FRTX",
+            "name": "Enabled",
             "description": "Master switch. When off the game renders completely untouched and no GPU memory is used.",
             "type": "bool",
             "default": true
         },
         "preset": {
             "name": "Preset",
-            "description": "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill. Anything other than Custom overrides every slider below, so set this to 0 before tuning by hand.",
+            "description": "0 = Custom, 1 = Subtle, 2 = Showcase, 3 = Overkill. Anything other than Custom overrides every look setting below, so set this to 0 before tuning by hand.",
             "type": "int",
             "default": 2,
             "min": 0,
@@ -30,14 +34,42 @@
                 "input": true
             }
         },
+        "enable-in-editor": {
+            "name": "In Editor",
+            "description": "Also apply the effect inside the level editor.",
+            "type": "bool",
+            "default": false
+        },
+        "exclude-ui": {
+            "name": "Exclude UI",
+            "description": "Draw the gameplay UI on top of the effect instead of through it, so the attempt counter and progress bar stay crisp.",
+            "type": "bool",
+            "default": false
+        },
+        "debug-view": {
+            "name": "Debug View",
+            "description": "0 = normal, 1 = captured scene, 2 = bloom, 3 = streaks, 4 = light rays. Invaluable for setting the bloom threshold.",
+            "type": "int",
+            "default": 0,
+            "min": 0,
+            "max": 4,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "title-2": {
+            "name": "Bloom",
+            "type": "title"
+        },
         "bloom-enabled": {
-            "name": "Bloom: Enabled",
+            "name": "Bloom",
             "description": "Makes bright objects, glow and particles bleed light into their surroundings.",
             "type": "bool",
             "default": true
         },
         "bloom-intensity": {
-            "name": "Bloom: Intensity",
+            "name": "Intensity",
             "description": "How strongly the blurred highlights are added back on top of the scene.",
             "type": "float",
             "default": 1.6,
@@ -49,7 +81,7 @@
             }
         },
         "bloom-threshold": {
-            "name": "Bloom: Threshold",
+            "name": "Threshold",
             "description": "Brightness a pixel must reach before it starts to glow. Lower values make more of the screen bloom.",
             "type": "float",
             "default": 0.52,
@@ -61,7 +93,7 @@
             }
         },
         "bloom-knee": {
-            "name": "Bloom: Soft Knee",
+            "name": "Soft Knee",
             "description": "Softness of the threshold. 0 is a hard cutoff, higher values fade highlights in gradually.",
             "type": "float",
             "default": 0.45,
@@ -73,8 +105,8 @@
             }
         },
         "bloom-emissive-bias": {
-            "name": "Bloom: Emissive Bias",
-            "description": "Biases the glow towards saturated colours, so neon and glow objects bloom hard while bright backgrounds stay put. Pure white still glows. Turn this down if you want everything bright to bloom equally.",
+            "name": "Emissive Bias",
+            "description": "Biases the glow towards saturated colours, so neon and glow objects bloom hard while bright backgrounds stay put. Pure white still glows.",
             "type": "float",
             "default": 0.55,
             "min": 0.0,
@@ -85,7 +117,7 @@
             }
         },
         "bloom-radius": {
-            "name": "Bloom: Radius",
+            "name": "Radius",
             "description": "Scales the blur step size. Larger values spread the glow further at the cost of some fidelity.",
             "type": "float",
             "default": 2.0,
@@ -96,8 +128,20 @@
                 "input": true
             }
         },
+        "bloom-spread": {
+            "name": "Spread",
+            "description": "How large the halo reads. Low values keep the glow tight against the object; high values let the widest blur levels through.",
+            "type": "float",
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
         "bloom-levels": {
-            "name": "Bloom: Quality",
+            "name": "Levels",
             "description": "Number of blur levels. 1 is a tight glow and cheapest, 3 gives a wide cinematic falloff.",
             "type": "int",
             "default": 3,
@@ -109,7 +153,7 @@
             }
         },
         "bloom-scale": {
-            "name": "Bloom: Resolution Scale",
+            "name": "Resolution Scale",
             "description": "Resolution of the bloom buffers relative to the screen. Lower is faster and slightly softer.",
             "type": "float",
             "default": 0.5,
@@ -120,21 +164,23 @@
                 "input": true
             }
         },
-        "bloom-spread": {
-            "name": "Bloom: Spread",
-            "description": "How large the halo around a light source reads. Low values keep the glow tight against the object; high values let the widest blur levels through and give the big soft halo of showcase footage.",
-            "type": "float",
-            "default": 0.8,
-            "min": 0.0,
-            "max": 1.0,
-            "control": {
-                "slider": true,
-                "input": true
+        "bloom-tint": {
+            "name": "Tint",
+            "description": "Colours the glow. White leaves it the colour of whatever is glowing.",
+            "type": "rgb",
+            "default": {
+                "r": 255,
+                "g": 255,
+                "b": 255
             }
         },
+        "title-3": {
+            "name": "Anamorphic Streaks",
+            "type": "title"
+        },
         "streak-intensity": {
-            "name": "Streaks: Intensity",
-            "description": "Horizontal anamorphic light streaks off bright points, like a cinema lens. Off by default: showcase levels glow radially rather than streaking. Needs bloom enabled.",
+            "name": "Intensity",
+            "description": "Horizontal light streaks off bright points, like a cinema lens. Off by default: showcase levels glow radially rather than streaking. Needs bloom enabled.",
             "type": "float",
             "default": 0.0,
             "min": 0.0,
@@ -145,7 +191,7 @@
             }
         },
         "streak-length": {
-            "name": "Streaks: Length",
+            "name": "Length",
             "description": "How far the streaks reach across the screen.",
             "type": "float",
             "default": 1.4,
@@ -156,9 +202,133 @@
                 "input": true
             }
         },
+        "streak-tint": {
+            "name": "Tint",
+            "description": "A faint cool tint is what reads as an anamorphic lens rather than as more bloom.",
+            "type": "rgb",
+            "default": {
+                "r": 204,
+                "g": 224,
+                "b": 255
+            }
+        },
+        "title-4": {
+            "name": "Light Rays",
+            "type": "title"
+        },
+        "rays-intensity": {
+            "name": "Intensity",
+            "description": "Volumetric-looking shafts of light radiating from a point. Needs bloom enabled. 0 disables the pass entirely.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 2.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-density": {
+            "name": "Density",
+            "description": "How far along the ray direction the samples are spread. Higher values give longer shafts.",
+            "type": "float",
+            "default": 0.85,
+            "min": 0.0,
+            "max": 2.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-decay": {
+            "name": "Decay",
+            "description": "How quickly a ray fades as it travels. Just below 1 gives long soft shafts; lower values cut them short.",
+            "type": "float",
+            "default": 0.95,
+            "min": 0.5,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-weight": {
+            "name": "Weight",
+            "description": "Contribution of each sample along the ray.",
+            "type": "float",
+            "default": 0.35,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-samples": {
+            "name": "Samples",
+            "description": "Samples per pixel. The single biggest cost in this pass; lower it first if rays are slow.",
+            "type": "int",
+            "default": 24,
+            "min": 8,
+            "max": 48,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-origin-mode": {
+            "name": "Origin",
+            "description": "0 = a fixed point on screen, 1 = follow the player.",
+            "type": "int",
+            "default": 0,
+            "min": 0,
+            "max": 1,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-origin-x": {
+            "name": "Origin X",
+            "description": "Horizontal position of the light source, 0 is the left edge and 1 the right. Used when Origin is 0.",
+            "type": "float",
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-origin-y": {
+            "name": "Origin Y",
+            "description": "Vertical position of the light source, 0 is the bottom edge and 1 the top. Used when Origin is 0.",
+            "type": "float",
+            "default": 0.78,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-tint": {
+            "name": "Tint",
+            "description": "Colours the shafts. A warm tint reads as sunlight.",
+            "type": "rgb",
+            "default": {
+                "r": 255,
+                "g": 238,
+                "b": 204
+            }
+        },
+        "title-5": {
+            "name": "Clarity",
+            "type": "title"
+        },
         "clarity": {
-            "name": "Clarity: Amount",
-            "description": "Local contrast. Lifts edge and material detail so the frame reads as though it has depth. This is doing most of the work in making the picture look three dimensional. 0 disables it.",
+            "name": "Amount",
+            "description": "Local contrast. Lifts edge and material detail so the frame reads as though it has depth. Pushed hard it rings bright outlines.",
             "type": "float",
             "default": 0.12,
             "min": 0.0,
@@ -169,8 +339,8 @@
             }
         },
         "clarity-radius": {
-            "name": "Clarity: Radius",
-            "description": "Radius in pixels. Small values sharpen and can halo, larger values give broad depth instead.",
+            "name": "Radius",
+            "description": "Radius in pixels. Small values sharpen, larger values give broad depth instead.",
             "type": "float",
             "default": 3.5,
             "min": 1.0,
@@ -180,14 +350,18 @@
                 "input": true
             }
         },
+        "title-6": {
+            "name": "Grade",
+            "type": "title"
+        },
         "tonemap-enabled": {
-            "name": "Grade: Filmic Tonemapping",
+            "name": "Filmic Tonemapping",
             "description": "Applies an ACES filmic curve so bright areas roll off smoothly instead of clipping to white.",
             "type": "bool",
             "default": true
         },
         "exposure": {
-            "name": "Grade: Exposure",
+            "name": "Exposure",
             "description": "Overall brightness multiplier applied before tonemapping.",
             "type": "float",
             "default": 1.05,
@@ -199,7 +373,7 @@
             }
         },
         "black-point": {
-            "name": "Grade: Black Point",
+            "name": "Black Point",
             "description": "Crushes the darkest values to true black. A little of this is most of what separates graded footage from a filter.",
             "type": "float",
             "default": 0.05,
@@ -211,7 +385,7 @@
             }
         },
         "contrast": {
-            "name": "Grade: Contrast",
+            "name": "Contrast",
             "description": "1.0 leaves contrast untouched.",
             "type": "float",
             "default": 1.1,
@@ -223,7 +397,7 @@
             }
         },
         "saturation": {
-            "name": "Grade: Saturation",
+            "name": "Saturation",
             "description": "0 is greyscale, 1.0 is untouched.",
             "type": "float",
             "default": 1.25,
@@ -235,8 +409,8 @@
             }
         },
         "split-shadow": {
-            "name": "Grade: Shadow Tone",
-            "description": "Tints the shadows only. Positive values cool them towards blue, which is the classic cinematic split.",
+            "name": "Shadow Tone",
+            "description": "Tints the shadows only. Positive values cool them towards blue, the classic cinematic split.",
             "type": "float",
             "default": 0.2,
             "min": -1.0,
@@ -247,7 +421,7 @@
             }
         },
         "split-highlight": {
-            "name": "Grade: Highlight Tone",
+            "name": "Highlight Tone",
             "description": "Tints the highlights only. Positive values warm them towards orange.",
             "type": "float",
             "default": 0.0,
@@ -259,8 +433,8 @@
             }
         },
         "temperature": {
-            "name": "Grade: Temperature",
-            "description": "Whole-image white balance. Negative values cool towards blue, positive values warm towards orange.",
+            "name": "Temperature",
+            "description": "Whole-image white balance. Negative cools towards blue, positive warms towards orange.",
             "type": "float",
             "default": 0.0,
             "min": -1.0,
@@ -271,8 +445,8 @@
             }
         },
         "tint": {
-            "name": "Grade: Tint",
-            "description": "Negative values push towards magenta, positive values towards green.",
+            "name": "Tint",
+            "description": "Negative values push towards magenta, positive towards green.",
             "type": "float",
             "default": 0.0,
             "min": -1.0,
@@ -282,8 +456,12 @@
                 "input": true
             }
         },
+        "title-7": {
+            "name": "Lens",
+            "type": "title"
+        },
         "vignette": {
-            "name": "Lens: Vignette",
+            "name": "Vignette",
             "description": "Darkens the corners of the screen. 0 disables it.",
             "type": "float",
             "default": 0.1,
@@ -294,9 +472,33 @@
                 "input": true
             }
         },
+        "vignette-roundness": {
+            "name": "Vignette Roundness",
+            "description": "0 follows the shape of the screen, 1 is a perfect circle.",
+            "type": "float",
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "vignette-softness": {
+            "name": "Vignette Softness",
+            "description": "How gradually the darkening comes in from the corners.",
+            "type": "float",
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
         "chromatic": {
-            "name": "Lens: Chromatic Aberration",
-            "description": "Splits red and blue towards the edges of the screen, like a real camera lens. 0 disables it.",
+            "name": "Chromatic Aberration",
+            "description": "Splits red and blue towards the edges of the screen, like a real lens. 0 disables it.",
             "type": "float",
             "default": 0.06,
             "min": 0.0,
@@ -307,7 +509,7 @@
             }
         },
         "grain": {
-            "name": "Lens: Film Grain",
+            "name": "Film Grain",
             "description": "Adds animated noise. Keep this very low; 0 disables it.",
             "type": "float",
             "default": 0.0,
@@ -319,22 +521,17 @@
             }
         },
         "dither": {
-            "name": "Lens: Dithering",
+            "name": "Dithering",
             "description": "Adds an imperceptible amount of noise to hide colour banding in smooth gradients.",
             "type": "bool",
             "default": true
         },
-        "debug-view": {
-            "name": "Debug View",
-            "description": "0 = normal, 1 = captured scene only, 2 = bloom only, 3 = streaks only. Useful when tuning the threshold and the emissive bias.",
-            "type": "int",
-            "default": 0,
-            "min": 0,
-            "max": 3,
-            "control": {
-                "slider": true,
-                "input": true
-            }
+        "tuner-key": {
+            "name": "Open Live Tuner",
+            "description": "Opens an in-game overlay for adjusting every value below while you play. Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value.",
+            "type": "keybind",
+            "category": "universal",
+            "default": "F8"
         }
     }
 }

@@ -7,6 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  check:
+    name: Consistency checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify generated files and shader uniforms
+        run: python3 tools/check.py
+
   build:
     strategy:
       fail-fast: false
@@ -30,6 +38,7 @@ jobs:
             optional: true
 
     name: ${{ matrix.config.name }}
+    needs: ['check']
     runs-on: ${{ matrix.config.os }}
     continue-on-error: ${{ matrix.config.optional }}
 

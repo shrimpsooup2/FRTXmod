@@ -120,6 +120,43 @@ void main() {
 }
 )";
 
+// Radial light shafts, the Kenny Mitchell formulation: march from the pixel
+// back towards the light origin along a straight line, accumulating the bright
+// pass and attenuating as we go. Run on the bright pass rather than the scene
+// so only things that already glow can cast a shaft.
+inline constexpr char const* RAYS = R"(
+uniform sampler2D u_source;
+uniform vec2 u_sourceUV;
+uniform vec2 u_origin;   // light position in normalised screen space
+uniform vec4 u_params;   // x = density, y = decay, z = weight, w = normalisation
+uniform float u_samples;
+
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 delta = (uv - u_origin) * (u_params.x / max(u_samples, 1.0));
+
+    vec3 accum = texture2D(u_source, uv * u_sourceUV).rgb;
+    vec2 coord = uv;
+    float illumination = 1.0;
+
+    // The bound is a compile time constant because GLSL ES 1.00 requires it;
+    // the break is what actually honours the sample count.
+    for (int i = 0; i < 48; ++i) {
+        if (float(i) >= u_samples) break;
+        coord -= delta;
+        // Clamping in screen space keeps the march from wandering into the
+        // padding of a power-of-two padded target.
+        vec2 tap = clamp(coord, 0.0, 1.0) * u_sourceUV;
+        accum += texture2D(u_source, tap).rgb * illumination * u_params.z;
+        illumination *= u_params.y;
+    }
+
+    gl_FragColor = vec4(accum * u_params.w, 1.0);
+}
+)";
+
 // Everything that touches the final image happens here in one pass: clarity,
 // bloom and streak combine, tonemap, grade and lens effects.
 inline constexpr char const* COMPOSITE = R"(
@@ -128,21 +165,26 @@ uniform sampler2D u_bloom0;
 uniform sampler2D u_bloom1;
 uniform sampler2D u_bloom2;
 uniform sampler2D u_streakTex;
+uniform sampler2D u_raysTex;
 
 uniform vec2 u_sceneUV;
 uniform vec2 u_bloomUV0;
 uniform vec2 u_bloomUV1;
 uniform vec2 u_bloomUV2;
 uniform vec2 u_streakUV;
+uniform vec2 u_raysUV;
 
-uniform vec4 u_bloom;   // xyz = per level weights, w = intensity
-uniform vec3 u_streak;  // tint already multiplied by intensity
-uniform vec4 u_tone;    // x = exposure, y = contrast, z = saturation, w = tonemap on
-uniform vec4 u_lens;    // x = vignette, y = chromatic, z = grain, w = dither on
-uniform vec4 u_misc;    // x = aspect, y = time, z = debug view, w = unused
-uniform vec2 u_grade;   // x = temperature, y = tint
-uniform vec4 u_grade2;  // x = black point, y = shadow split, z = highlight split, w = unused
-uniform vec3 u_clarity; // x = amount, y = radius in screen uv, z = detail clamp
+uniform vec4 u_bloom;     // xyz = per level weights, w = intensity
+uniform vec3 u_bloomTint;
+uniform vec3 u_streak;    // tint already multiplied by intensity
+uniform vec3 u_rays;      // tint already multiplied by intensity
+uniform vec4 u_tone;      // x = exposure, y = contrast, z = saturation, w = tonemap on
+uniform vec4 u_lens;      // x = chromatic, y = grain, z = dither on, w = unused
+uniform vec4 u_vignette;  // x = strength, y = roundness, z = inner, w = outer
+uniform vec4 u_misc;      // x = aspect, y = time, z = debug view, w = unused
+uniform vec2 u_grade;     // x = temperature, y = tint
+uniform vec4 u_grade2;    // x = black point, y = shadow split, z = highlight split
+uniform vec3 u_clarity;   // x = amount, y = radius in screen uv, z = detail clamp
 
 varying vec2 v_texCoord;
 
@@ -202,7 +244,7 @@ vec3 applyClarity(vec3 color, vec2 screenUV) {
 void main() {
     vec2 uv = v_texCoord;
 
-    vec3 color = sampleScene(uv, u_lens.y);
+    vec3 color = sampleScene(uv, u_lens.x);
     if (u_clarity.x > 0.0) {
         color = applyClarity(color, uv);
     }
@@ -210,9 +252,10 @@ void main() {
     vec3 bloom = texture2D(u_bloom0, uv * u_bloomUV0).rgb * u_bloom.x
                + texture2D(u_bloom1, uv * u_bloomUV1).rgb * u_bloom.y
                + texture2D(u_bloom2, uv * u_bloomUV2).rgb * u_bloom.z;
-    bloom *= u_bloom.w;
+    bloom *= u_bloom.w * u_bloomTint;
 
     vec3 streak = texture2D(u_streakTex, uv * u_streakUV).rgb * u_streak;
+    vec3 rays = texture2D(u_raysTex, uv * u_raysUV).rgb * u_rays;
 
     if (u_misc.z > 0.5 && u_misc.z < 1.5) {
         gl_FragColor = vec4(color, 1.0);
@@ -222,12 +265,16 @@ void main() {
         gl_FragColor = vec4(bloom, 1.0);
         return;
     }
-    if (u_misc.z > 2.5) {
+    if (u_misc.z > 2.5 && u_misc.z < 3.5) {
         gl_FragColor = vec4(streak, 1.0);
         return;
     }
+    if (u_misc.z > 3.5) {
+        gl_FragColor = vec4(rays, 1.0);
+        return;
+    }
 
-    color += bloom + streak;
+    color += bloom + streak + rays;
 
     color *= u_tone.x;
     if (u_tone.w > 0.5) {
@@ -256,17 +303,19 @@ void main() {
     color = (color - 0.5) * u_tone.y + 0.5;
     color = mix(vec3(dot(color, LUMA)), color, u_tone.z);
 
-    if (u_lens.x > 0.0) {
-        vec2 d = (uv - vec2(0.5)) * vec2(u_misc.x, 1.0);
-        float v = 1.0 - smoothstep(0.25, 0.85, length(d));
-        color *= mix(1.0, v, u_lens.x);
+    if (u_vignette.x > 0.0) {
+        // Roundness blends between following the shape of the screen and a
+        // true circle.
+        vec2 d = (uv - vec2(0.5)) * vec2(mix(1.0, u_misc.x, u_vignette.y), 1.0);
+        float v = 1.0 - smoothstep(u_vignette.z, u_vignette.w, length(d));
+        color *= mix(1.0, v, u_vignette.x);
     }
 
     float noise = fract(sin(dot(uv + fract(u_misc.y), vec2(12.9898, 78.233))) * 43758.5453);
-    if (u_lens.z > 0.0) {
-        color += (noise - 0.5) * u_lens.z;
+    if (u_lens.y > 0.0) {
+        color += (noise - 0.5) * u_lens.y;
     }
-    if (u_lens.w > 0.5) {
+    if (u_lens.z > 0.5) {
         // Roughly half a least significant bit, enough to break up banding.
         color += (noise - 0.5) * (1.0 / 255.0);
     }

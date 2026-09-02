@@ -5,17 +5,25 @@
 
 namespace frtx {
 
+// Anything the renderer needs from the game that it cannot work out itself.
+struct FrameInfo {
+    bool  hasPlayer = false;
+    float playerX = 0.5f;  // normalised screen space
+    float playerY = 0.5f;
+};
+
 // Owns every GPU resource and runs the pass chain.
 //
-// The frame is bracketed by two calls that happen at opposite ends of the
-// scene graph:
+// The frame is bracketed from inside GJBaseGameLayer::visit():
 //
-//   beginCapture()  <- capture node, z-order INT_MIN, runs before anything else
-//       ... the entire game renders into our capture target ...
-//   endCapture()    <- composite node, z-order INT_MAX, runs after everything
+//   beginCapture()      binds the capture target
+//       GJBaseGameLayer::visit()   -- the whole game renders into it
+//   endCapture()        builds the bloom pyramid and composites to the screen
 //
-// endCapture() closes the capture target, builds the bloom pyramid and then
-// draws the graded result to whatever framebuffer was bound when we started.
+// Wrapping the game layer's own visit() rather than the scene means the
+// begin/end pair lives in one function, so the matrix stack and framebuffer
+// binding are trivially balanced, and it covers PlayLayer and LevelEditorLayer
+// alike since both inherit that method.
 class PostProcessor {
 public:
     static constexpr int kMaxBloomLevels = 3;
@@ -24,7 +32,7 @@ public:
 
     // Returns true when the frame is now being captured. When it returns false
     // the game renders straight to the screen and endCapture() is a no-op.
-    bool beginCapture();
+    bool beginCapture(FrameInfo const& info);
     void endCapture();
 
     bool isCapturing() const { return m_capturing; }
@@ -32,6 +40,8 @@ public:
     // Frees the render targets. Shader programs are kept, they are cheap and
     // recompiling them on every level entry would be wasteful.
     void releaseResources();
+
+    FRTXConfig const& frameConfig() const { return m_frameConfig; }
 
 private:
     bool ensurePrograms();
@@ -42,6 +52,7 @@ private:
     void blurPass(Target& dst, Target const& src, float offsetX, float offsetY);
     void blurLevel(Target& target, Target& temp, float radius);
     void buildStreaks(FRTXConfig const& cfg);
+    void buildRays(FRTXConfig const& cfg);
     void present(FRTXConfig const& cfg);
 
     bool m_capturing = false;
@@ -50,6 +61,7 @@ private:
     // Snapshot taken in beginCapture() and used by endCapture(), so both halves
     // of the frame always agree even if a setting changes in between.
     FRTXConfig m_frameConfig;
+    FrameInfo m_frameInfo;
 
     bool  m_targetsValid = false;
     FRTXConfig m_targetConfig;
@@ -68,6 +80,9 @@ private:
     Target m_streak[2];
     bool m_streakValid = false;
 
+    Target m_rays;
+    bool m_raysValid = false;
+
     // Fraction of the capture target the game actually draws into, because the
     // target is rounded up to whole points.
     float m_sceneFillX = 1.0f;
@@ -76,6 +91,7 @@ private:
     Program m_prefilter;
     Program m_downsample;
     Program m_blur;
+    Program m_rayProgram;
     Program m_composite;
 
     float m_time = 0.0f;
