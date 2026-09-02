@@ -12,15 +12,37 @@ signature* people read as "RTX" entirely in screen space.
 
 ```
 scene renders  ->  [capture target]
-                        |  bright pass + downsample
+                        |  bright pass, saturation weighted + downsample
                    [bloom level 0]  --box-->  [level 1]  --box-->  [level 2]
-                        |                        |                    |
-                   H+V gaussian             H+V gaussian         H+V gaussian
-                        \_______________________ | ___________________/
-                                                 v
-   capture + weighted bloom -> exposure -> ACES -> white balance -> contrast
-                            -> saturation -> vignette -> grain/dither -> screen
+                        |     \                  |                    |
+                   H+V gaussian \           H+V gaussian         H+V gaussian
+                        |        \               |                    |
+                        |    3x horizontal-only blur, steps 1/4/16
+                        |         -> [streak]     |                    |
+                        \____________ | __________|____________________/
+                                      v
+   capture -> clarity -> + bloom + streak -> exposure -> ACES -> black point
+           -> white balance -> split tone -> contrast -> saturation
+           -> vignette -> grain/dither -> screen
 ```
+
+### Matching the showcase look
+
+Three things separate this from a generic bloom filter, and they matter more
+than the bloom strength does:
+
+- **The bright pass is weighted by saturation.** GD's neon, glow objects and
+  particles are strongly saturated; skies and background gradients are bright
+  but washed out. Weighting by saturation is the closest we can get to
+  object-aware emission without reading GD's object data, and it is what stops
+  the whole background from glowing. Pure whites are exempted, since a lot of GD
+  glow is white.
+- **Anamorphic streaks.** Three chained horizontal-only blurs with the step
+  growing 4x each time reach roughly +/-70 texels of smear for nine fetches per
+  pixel, which no single wide blur could manage.
+- **Clarity.** An unsharp mask against a ring of wide taps. Local contrast is
+  what makes a flat 2D frame read as though it has depth, and it is doing more
+  for the impression of "ray tracing" than the glow is.
 
 ### Capturing the frame
 
@@ -81,8 +103,10 @@ but those builds are allowed to fail and the platforms are not shipped yet.
 - [x] Frame capture and composite
 - [x] Bloom
 - [x] Tonemapping, colour grading, lens effects
-- [ ] Object-aware emissive buffer, so the player, glow-enabled objects and
-      particles bloom regardless of screen luminance
+- [x] Emissive-biased bloom, anamorphic streaks, clarity, split toning
+- [x] Presets
+- [ ] True object-aware emissive buffer, driven by GD's glow data rather than by
+      screen saturation
 - [ ] Light rays / god rays
 - [ ] In-game settings popup with live sliders and presets
 - [ ] Editor support

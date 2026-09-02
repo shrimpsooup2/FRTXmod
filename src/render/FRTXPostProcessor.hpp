@@ -39,7 +39,9 @@ private:
     void releaseTargets();
 
     void buildBloom(FRTXConfig const& cfg);
+    void blurPass(Target& dst, Target const& src, float offsetX, float offsetY);
     void blurLevel(Target& target, Target& temp, float radius);
+    void buildStreaks(FRTXConfig const& cfg);
     void present(FRTXConfig const& cfg);
 
     bool m_capturing = false;
@@ -60,6 +62,12 @@ private:
     Target m_bloom[kMaxBloomLevels];
     Target m_bloomTemp[kMaxBloomLevels];
 
+    // Ping-pong pair for the anamorphic streak, which is three horizontal-only
+    // blurs of the bright pass with rapidly growing steps. The finished streak
+    // always ends up in m_streak[0].
+    Target m_streak[2];
+    bool m_streakValid = false;
+
     // Fraction of the capture target the game actually draws into, because the
     // target is rounded up to whole points.
     float m_sceneFillX = 1.0f;
@@ -72,6 +80,7 @@ private:
 
     float m_time = 0.0f;
     float m_aspect = 1.0f;
+    float m_pixelHeight = 1.0f;
 };
 
 }

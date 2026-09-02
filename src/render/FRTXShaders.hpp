@@ -34,11 +34,17 @@ void main() {
 
 // Bright pass: box-downsample the scene and keep only what is above the
 // threshold, with a soft knee so highlights fade in instead of popping.
+//
+// The contribution is also weighted towards saturated pixels. GD's neon, glow
+// objects and particles are strongly saturated, while skies and background
+// gradients are bright but washed out, so this is what keeps a bright
+// background from blooming as hard as the objects in front of it. Pure whites
+// are exempted, because plenty of GD glow is white.
 inline constexpr char const* PREFILTER = R"(
 uniform sampler2D u_source;
 uniform vec2 u_sourceUV;
 uniform vec2 u_texelSize;
-uniform vec3 u_filter; // x = threshold, y = knee, z = 1 / (4 * knee)
+uniform vec4 u_filter; // x = threshold, y = knee, z = 1 / (4 * knee), w = emissive bias
 
 varying vec2 v_texCoord;
 
@@ -53,12 +59,17 @@ void main() {
     c *= 0.25;
 
     float brightness = max(c.r, max(c.g, c.b));
+    float darkest = min(c.r, min(c.g, c.b));
 
     float soft = brightness - u_filter.x + u_filter.y;
     soft = clamp(soft, 0.0, 2.0 * u_filter.y);
     soft = soft * soft * u_filter.z;
 
     float contribution = max(soft, brightness - u_filter.x) / max(brightness, 0.0001);
+
+    float saturation = (brightness - darkest) / max(brightness, 0.0001);
+    float emissive = max(saturation, smoothstep(0.85, 1.0, brightness));
+    contribution *= mix(1.0, emissive, u_filter.w);
 
     gl_FragColor = vec4(c * contribution, 1.0);
 }
@@ -109,24 +120,29 @@ void main() {
 }
 )";
 
-// Everything that touches the final image happens here in one pass: bloom
-// combine, tonemap, grade and lens effects.
+// Everything that touches the final image happens here in one pass: clarity,
+// bloom and streak combine, tonemap, grade and lens effects.
 inline constexpr char const* COMPOSITE = R"(
 uniform sampler2D u_scene;
 uniform sampler2D u_bloom0;
 uniform sampler2D u_bloom1;
 uniform sampler2D u_bloom2;
+uniform sampler2D u_streakTex;
 
 uniform vec2 u_sceneUV;
 uniform vec2 u_bloomUV0;
 uniform vec2 u_bloomUV1;
 uniform vec2 u_bloomUV2;
+uniform vec2 u_streakUV;
 
-uniform vec4 u_bloom;  // xyz = per level weights, w = intensity
-uniform vec4 u_tone;   // x = exposure, y = contrast, z = saturation, w = tonemap on
-uniform vec4 u_lens;   // x = vignette, y = chromatic, z = grain, w = dither on
-uniform vec4 u_misc;   // x = aspect, y = time, z = debug view, w = unused
-uniform vec2 u_grade;  // x = temperature, y = tint
+uniform vec4 u_bloom;   // xyz = per level weights, w = intensity
+uniform vec3 u_streak;  // tint already multiplied by intensity
+uniform vec4 u_tone;    // x = exposure, y = contrast, z = saturation, w = tonemap on
+uniform vec4 u_lens;    // x = vignette, y = chromatic, z = grain, w = dither on
+uniform vec4 u_misc;    // x = aspect, y = time, z = debug view, w = unused
+uniform vec2 u_grade;   // x = temperature, y = tint
+uniform vec4 u_grade2;  // x = black point, y = shadow split, z = highlight split, w = unused
+uniform vec2 u_clarity; // x = amount, y = radius in screen uv
 
 varying vec2 v_texCoord;
 
@@ -152,26 +168,59 @@ vec3 sampleScene(vec2 screenUV, float amount) {
     );
 }
 
+// Unsharp mask against a ring of wide taps. Adding back the difference between
+// the image and its own blur lifts edge and material detail, which is what
+// makes a flat 2D frame read as though it has depth.
+vec3 applyClarity(vec3 color, vec2 screenUV) {
+    // The radius arrives normalised against screen height, so the horizontal
+    // component is divided by the aspect ratio to keep the ring circular.
+    vec2 r = vec2(u_clarity.y / u_misc.x, u_clarity.y);
+    vec2 rx = vec2(r.x, 0.0);
+    vec2 ry = vec2(0.0, r.y);
+    vec2 rd = r * 0.7071;
+
+    vec3 low = texture2D(u_scene, (screenUV + rx) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV - rx) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV + ry) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV - ry) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV + rd) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV - rd) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV + vec2(rd.x, -rd.y)) * u_sceneUV).rgb;
+    low += texture2D(u_scene, (screenUV - vec2(rd.x, -rd.y)) * u_sceneUV).rgb;
+    low *= 0.125;
+
+    return color + (color - low) * u_clarity.x;
+}
+
 void main() {
     vec2 uv = v_texCoord;
 
     vec3 color = sampleScene(uv, u_lens.y);
+    if (u_clarity.x > 0.0) {
+        color = applyClarity(color, uv);
+    }
 
     vec3 bloom = texture2D(u_bloom0, uv * u_bloomUV0).rgb * u_bloom.x
                + texture2D(u_bloom1, uv * u_bloomUV1).rgb * u_bloom.y
                + texture2D(u_bloom2, uv * u_bloomUV2).rgb * u_bloom.z;
     bloom *= u_bloom.w;
 
+    vec3 streak = texture2D(u_streakTex, uv * u_streakUV).rgb * u_streak;
+
     if (u_misc.z > 0.5 && u_misc.z < 1.5) {
         gl_FragColor = vec4(color, 1.0);
         return;
     }
-    if (u_misc.z > 1.5) {
+    if (u_misc.z > 1.5 && u_misc.z < 2.5) {
         gl_FragColor = vec4(bloom, 1.0);
         return;
     }
+    if (u_misc.z > 2.5) {
+        gl_FragColor = vec4(streak, 1.0);
+        return;
+    }
 
-    color += bloom;
+    color += bloom + streak;
 
     color *= u_tone.x;
     if (u_tone.w > 0.5) {
@@ -180,10 +229,22 @@ void main() {
         color = clamp(color, 0.0, 1.0);
     }
 
+    // Crushing the black point is most of what separates "a filter" from
+    // "footage": it is applied after the tonemap so the curve has already
+    // decided how the highlights roll off.
+    color = max(color - vec3(u_grade2.x), vec3(0.0)) / max(1.0 - u_grade2.x, 0.001);
+
     // White balance. Both curves are the identity at 0 so the neutral setting
     // leaves the image untouched.
     color *= vec3(1.0) + vec3( 0.06, -0.02, -0.10) * u_grade.x;
     color *= vec3(1.0) + vec3(-0.04,  0.05, -0.04) * u_grade.y;
+
+    // Split toning: cool the shadows, warm the highlights, leave the midtones.
+    float luma = dot(color, LUMA);
+    vec3 shadowTint = vec3(1.0) + vec3(-0.08, -0.02, 0.10) * u_grade2.y;
+    vec3 highlightTint = vec3(1.0) + vec3(0.10, 0.03, -0.08) * u_grade2.z;
+    color *= mix(shadowTint, vec3(1.0), smoothstep(0.0, 0.5, luma));
+    color *= mix(vec3(1.0), highlightTint, smoothstep(0.4, 1.0, luma));
 
     color = (color - 0.5) * u_tone.y + 0.5;
     color = mix(vec3(dot(color, LUMA)), color, u_tone.z);

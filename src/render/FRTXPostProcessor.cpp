@@ -60,6 +60,9 @@ void PostProcessor::endCapture() {
     auto const& cfg = m_frameConfig;
     if (cfg.bloomEnabled && m_activeLevels > 0) {
         buildBloom(cfg);
+        if (cfg.streaksEnabled() && m_streakValid) {
+            buildStreaks(cfg);
+        }
     }
     present(cfg);
 }
@@ -154,12 +157,28 @@ bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
         }
     }
 
+    m_streakValid = false;
+    if (cfg.streaksEnabled() && m_activeLevels > 0) {
+        // Half of the first bloom level again. Streaks are wide and soft, so
+        // resolution buys nothing here.
+        int const sw = std::max(4, m_bloom[0].widthPoints / 2);
+        int const sh = std::max(4, m_bloom[0].heightPoints / 2);
+        if (m_streak[0].create(sw, sh) && m_streak[1].create(sw, sh)) {
+            m_streakValid = true;
+        } else {
+            log::warn("could not allocate the streak buffers, streaks are off");
+            m_streak[0].destroy();
+            m_streak[1].destroy();
+        }
+    }
+
     m_targetsValid = true;
     m_targetConfig = cfg;
     m_targetWidth = winSize.width;
     m_targetHeight = winSize.height;
     m_targetScaleFactor = scaleFactor;
     m_aspect = winSize.height > 0.0f ? winSize.width / winSize.height : 1.0f;
+    m_pixelHeight = pixels.height > 1.0f ? pixels.height : 1.0f;
 
     log::info("allocated a {}x{} capture with {} bloom level(s)", sceneW, sceneH, m_activeLevels);
     return true;
@@ -171,6 +190,9 @@ void PostProcessor::releaseTargets() {
         m_bloom[i].destroy();
         m_bloomTemp[i].destroy();
     }
+    m_streak[0].destroy();
+    m_streak[1].destroy();
+    m_streakValid = false;
     m_activeLevels = 0;
     m_targetsValid = false;
 }
@@ -186,7 +208,8 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
         m_prefilter.set1i("u_source", 0);
         m_prefilter.set2f("u_sourceUV", m_scene.uvW * m_sceneFillX, m_scene.uvH * m_sceneFillY);
         m_prefilter.set2f("u_texelSize", m_scene.texelW, m_scene.texelH);
-        m_prefilter.set3f("u_filter", cfg.bloomThreshold, knee, 1.0f / (4.0f * knee));
+        m_prefilter.set4f("u_filter", cfg.bloomThreshold, knee, 1.0f / (4.0f * knee),
+            cfg.emissiveBias);
         bindTexture(0, m_scene.textureName());
         setReplaceBlend();
         drawFullscreenQuad();
@@ -213,28 +236,32 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
     }
 }
 
-void PostProcessor::blurLevel(Target& target, Target& temp, float radius) {
-    // Horizontal into the scratch buffer...
-    temp.rt->begin();
+void PostProcessor::blurPass(Target& dst, Target const& src, float offsetX, float offsetY) {
+    dst.rt->begin();
     m_blur.use();
     m_blur.set1i("u_source", 0);
-    m_blur.set2f("u_sourceUV", target.uvW, target.uvH);
-    m_blur.set2f("u_offset", target.texelW * radius, 0.0f);
-    bindTexture(0, target.textureName());
+    m_blur.set2f("u_sourceUV", src.uvW, src.uvH);
+    m_blur.set2f("u_offset", offsetX, offsetY);
+    bindTexture(0, src.textureName());
     setReplaceBlend();
     drawFullscreenQuad();
-    temp.rt->end();
+    dst.rt->end();
+}
 
-    // ...then vertical, back into the level itself.
-    target.rt->begin();
-    m_blur.use();
-    m_blur.set1i("u_source", 0);
-    m_blur.set2f("u_sourceUV", temp.uvW, temp.uvH);
-    m_blur.set2f("u_offset", 0.0f, temp.texelH * radius);
-    bindTexture(0, temp.textureName());
-    setReplaceBlend();
-    drawFullscreenQuad();
-    target.rt->end();
+void PostProcessor::blurLevel(Target& target, Target& temp, float radius) {
+    blurPass(temp, target, target.texelW * radius, 0.0f);
+    blurPass(target, temp, 0.0f, temp.texelH * radius);
+}
+
+void PostProcessor::buildStreaks(FRTXConfig const& cfg) {
+    // Three horizontal passes with the step growing by 4x each time. Chaining
+    // them this way reaches roughly +/-70 texels of smear for nine texture
+    // fetches per pixel, which a single wide blur could not touch.
+    float const length = cfg.streakLength;
+
+    blurPass(m_streak[0], m_bloom[0], m_bloom[0].texelW * length, 0.0f);
+    blurPass(m_streak[1], m_streak[0], m_streak[0].texelW * length * 4.0f, 0.0f);
+    blurPass(m_streak[0], m_streak[1], m_streak[1].texelW * length * 16.0f, 0.0f);
 }
 
 void PostProcessor::present(FRTXConfig const& cfg) {
@@ -256,6 +283,7 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set1i("u_bloom0", 1);
     m_composite.set1i("u_bloom1", 2);
     m_composite.set1i("u_bloom2", 3);
+    m_composite.set1i("u_streakTex", 4);
     m_composite.set2f("u_sceneUV", m_scene.uvW * m_sceneFillX, m_scene.uvH * m_sceneFillY);
 
     for (int i = 0; i < kMaxBloomLevels; ++i) {
@@ -267,8 +295,19 @@ void PostProcessor::present(FRTXConfig const& cfg) {
         bindTexture(i + 1, source.textureName());
     }
 
+    bool const streaks = cfg.streaksEnabled() && m_streakValid;
+    Target const& streakSource = streaks ? m_streak[0] : m_scene;
+    m_composite.set2f("u_streakUV", streakSource.uvW, streakSource.uvH);
+    bindTexture(4, streakSource.textureName());
+
     // Bind unit 0 last so cocos gets the texture unit back the way it expects.
     bindTexture(0, m_scene.textureName());
+
+    // A faint cool tint is what reads as an anamorphic lens rather than as more
+    // bloom; keeping it mild lets coloured streaks stay their own colour.
+    float const streakAmount = streaks ? cfg.streakIntensity : 0.0f;
+    m_composite.set3f("u_streak",
+        0.80f * streakAmount, 0.88f * streakAmount, 1.00f * streakAmount);
 
     m_composite.set4f("u_bloom", weights[0], weights[1], weights[2],
         cfg.bloomEnabled ? cfg.bloomIntensity : 0.0f);
@@ -278,6 +317,8 @@ void PostProcessor::present(FRTXConfig const& cfg) {
         cfg.dither ? 1.0f : 0.0f);
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
+    m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);
+    m_composite.set2f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight);
 
     setReplaceBlend();
     drawFullscreenQuad();
