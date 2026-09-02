@@ -133,10 +133,17 @@ artifact.
 
 ## Platform support
 
-Windows is the supported target and the one listed in `mod.json`. The rendering
-code is deliberately portable — GLES2-safe GLSL with no version directive, no
-desktop-only GL calls — and CI also builds macOS and Android for information,
-but those jobs are allowed to fail and the platforms are not shipped yet.
+Windows is the supported target and the only one listed in `mod.json`.
+
+CI builds Windows alone, on purpose. Adding macOS and Android jobs "for
+information" does not work: they fail during CMake configure with
+`JSON member 'gd mac' not found` before a single source file is compiled, so
+they report nothing about whether the code is portable. To actually add a
+platform, add it to `gd` in `mod.json` and add a job to the workflow.
+
+The rendering code is written to be portable regardless — GLES2-safe GLSL with
+no version directive, no desktop-only GL calls — so that remains a small change
+rather than a rewrite.
 
 ## Regenerating the icon
 

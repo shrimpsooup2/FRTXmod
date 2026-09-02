@@ -3,7 +3,8 @@
 ## v0.4.0
 
 Verified against the real Geode SDK and GD bindings for the first time, which
-corrected some guesses and unlocked the rest of the roadmap.
+corrected some guesses and unlocked the rest of the roadmap. First version to
+have actually been compiled.
 
 - **Now targets Geode 5.10.1 and GD 2.2081.** The previous `4.0.0` / `2.2074`
   would not have loaded.

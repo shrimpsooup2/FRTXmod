@@ -12,35 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # None of this needs a compiler, so running it first turns a class of
+      # mistake into a ten second failure instead of a three minute one.
       - name: Verify generated files and shader uniforms
         run: python3 tools/check.py
 
+  # Windows only, because mod.json declares only `win`. Building the other
+  # targets tells us nothing about portability: they fail during CMake configure
+  # with "JSON member 'gd mac' not found" before a single source file is
+  # compiled. To add a platform, add it to `gd` in mod.json and add a job here.
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          # Windows is the supported target and gates the build.
-          - name: Windows
-            os: windows-latest
-            target: Win64
-            optional: false
-          # These are built for information only: the code is written to be
-          # portable, but these platforms are not listed in mod.json yet, so a
-          # failure here must not fail the workflow.
-          - name: macOS
-            os: macos-latest
-            target: MacOS
-            optional: true
-          - name: Android64
-            os: ubuntu-latest
-            target: Android64
-            optional: true
-
-    name: ${{ matrix.config.name }}
+    name: Windows
     needs: ['check']
-    runs-on: ${{ matrix.config.os }}
-    continue-on-error: ${{ matrix.config.optional }}
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -48,21 +33,18 @@ jobs:
           submodules: recursive
 
       - name: Build the mod
+        id: build
         uses: geode-sdk/build-geode-mod@main
         with:
-          combine: true
-          target: ${{ matrix.config.target }}
+          target: Win64
 
-  package:
-    name: Package builds
-    runs-on: ubuntu-latest
-    needs: ['build']
-
-    steps:
-      - uses: geode-sdk/build-geode-mod/combine@main
-        id: build
-
-      - uses: actions/upload-artifact@v4
+      # The action only uploads by itself when `combine` is set, which exists
+      # for merging several platforms into one .geode. With a single platform
+      # there is nothing to merge -- `geode package merge` refuses, since it
+      # needs at least two -- so publish the built file directly instead.
+      - name: Upload the packaged mod
+        uses: actions/upload-artifact@v4
         with:
           name: FRTX
-          path: ${{ steps.build.outputs.build-output }}
+          path: ${{ steps.build.outputs.build-output }}/*.geode
+          if-no-files-found: error
