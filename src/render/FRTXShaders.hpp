@@ -142,7 +142,7 @@ uniform vec4 u_lens;    // x = vignette, y = chromatic, z = grain, w = dither on
 uniform vec4 u_misc;    // x = aspect, y = time, z = debug view, w = unused
 uniform vec2 u_grade;   // x = temperature, y = tint
 uniform vec4 u_grade2;  // x = black point, y = shadow split, z = highlight split, w = unused
-uniform vec2 u_clarity; // x = amount, y = radius in screen uv
+uniform vec3 u_clarity; // x = amount, y = radius in screen uv, z = detail clamp
 
 varying vec2 v_texCoord;
 
@@ -171,6 +171,11 @@ vec3 sampleScene(vec2 screenUV, float amount) {
 // Unsharp mask against a ring of wide taps. Adding back the difference between
 // the image and its own blur lifts edge and material detail, which is what
 // makes a flat 2D frame read as though it has depth.
+//
+// The difference is clamped before it is added back. Without that, the dark
+// side of a bright edge gets pushed darker still and every glowing outline
+// picks up a dark ring around it, which is exactly the artefact that gives a
+// sharpening filter away.
 vec3 applyClarity(vec3 color, vec2 screenUV) {
     // The radius arrives normalised against screen height, so the horizontal
     // component is divided by the aspect ratio to keep the ring circular.
@@ -189,7 +194,9 @@ vec3 applyClarity(vec3 color, vec2 screenUV) {
     low += texture2D(u_scene, (screenUV - vec2(rd.x, -rd.y)) * u_sceneUV).rgb;
     low *= 0.125;
 
-    return color + (color - low) * u_clarity.x;
+    vec3 detail = color - low;
+    detail = sign(detail) * min(abs(detail), vec3(u_clarity.z));
+    return color + detail * u_clarity.x;
 }
 
 void main() {

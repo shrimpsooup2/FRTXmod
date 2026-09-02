@@ -37,12 +37,19 @@ than the bloom strength does:
   object-aware emission without reading GD's object data, and it is what stops
   the whole background from glowing. Pure whites are exempted, since a lot of GD
   glow is white.
-- **Anamorphic streaks.** Three chained horizontal-only blurs with the step
-  growing 4x each time reach roughly +/-70 texels of smear for nine fetches per
-  pixel, which no single wide blur could manage.
-- **Clarity.** An unsharp mask against a ring of wide taps. Local contrast is
-  what makes a flat 2D frame read as though it has depth, and it is doing more
-  for the impression of "ray tracing" than the glow is.
+- **Halo width is a control of its own.** How fast the per level bloom weights
+  fall off decides how large the glow reads, independently of how bright it is.
+  Showcase footage has big soft halos around every light source, which needs a
+  flat falloff, not more intensity.
+- **Clarity, clamped.** An unsharp mask against a ring of wide taps lifts local
+  contrast, but the difference is clamped before it is added back: otherwise the
+  dark side of a bright edge is pushed darker still and every glowing outline
+  picks up a dark ring, which is the artefact that gives a sharpening filter
+  away.
+
+Anamorphic streaks (three chained horizontal-only blurs, step growing 4x each
+time) are implemented and available, but off in the Showcase preset — the
+reference footage glows radially and does not streak.
 
 ### Capturing the frame
 

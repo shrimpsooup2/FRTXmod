@@ -27,12 +27,14 @@ before tuning.
   neon, glow objects and particles bleed light while a bright background stays
   where it is. Pure white still glows, because plenty of GD glow is white.
 - **Anamorphic streaks** — horizontal light streaks off bright points, the way a
-  cinema lens flares.
-- **Clarity** — local contrast that lifts edge and material detail. This is what
-  makes a flat 2D frame read as though it has depth, and it does more for the
-  "ray traced" impression than the glow does.
+  cinema lens flares. Off in the Showcase preset, because showcase levels glow
+  radially rather than streaking; Overkill turns them on.
+- **Clarity** — local contrast that lifts edge and material detail, kept
+  deliberately gentle. Pushed hard it rings every neon outline with a dark
+  halo, which is the giveaway of a sharpening filter.
 - **Filmic tonemapping and grading** — an ACES curve, a crushed black point,
-  and split toning that cools the shadows and warms the highlights.
+  and split toning. The default grade is close to neutral on purpose: these
+  levels carry their own palette and a heavy grade fights it.
 - **Lens effects** — vignette, chromatic aberration, film grain and dithering.
 
 Everything can be turned off on its own. If you disable all of it the game
@@ -42,7 +44,8 @@ renders completely untouched and no GPU memory is used at all.
 
 The bloom buffers default to half resolution, which is where most of the cost
 lives. If you need frames back, in order: drop **Bloom: Resolution Scale**, then
-**Bloom: Quality**, then **Streaks: Intensity** to 0, then **Clarity** to 0.
+**Bloom: Quality**, then **Clarity** to 0. Streaks are already off unless you
+turned them on.
 
 ## Tuning tips
 

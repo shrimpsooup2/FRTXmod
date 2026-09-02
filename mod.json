@@ -5,9 +5,11 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.2.0",
-    "developers": ["shrimpsooup2"],
-    "description": "RTX-style post processing for Geometry Dash: emissive bloom, anamorphic streaks, clarity and cinematic colour grading.",
+    "version": "v0.3.0",
+    "developers": [
+        "shrimpsooup2"
+    ],
+    "description": "RTX-style post processing for Geometry Dash: emissive bloom, clarity and cinematic colour grading.",
     "repository": "https://github.com/shrimpsooup2/FRTXmod",
     "settings": {
         "enabled": {
@@ -23,7 +25,10 @@
             "default": 2,
             "min": 0,
             "max": 3,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-enabled": {
             "name": "Bloom: Enabled",
@@ -35,46 +40,61 @@
             "name": "Bloom: Intensity",
             "description": "How strongly the blurred highlights are added back on top of the scene.",
             "type": "float",
-            "default": 1.45,
+            "default": 1.6,
             "min": 0.0,
             "max": 4.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-threshold": {
             "name": "Bloom: Threshold",
             "description": "Brightness a pixel must reach before it starts to glow. Lower values make more of the screen bloom.",
             "type": "float",
-            "default": 0.62,
+            "default": 0.52,
             "min": 0.0,
             "max": 1.5,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-knee": {
             "name": "Bloom: Soft Knee",
             "description": "Softness of the threshold. 0 is a hard cutoff, higher values fade highlights in gradually.",
             "type": "float",
-            "default": 0.35,
+            "default": 0.45,
             "min": 0.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-emissive-bias": {
             "name": "Bloom: Emissive Bias",
             "description": "Biases the glow towards saturated colours, so neon and glow objects bloom hard while bright backgrounds stay put. Pure white still glows. Turn this down if you want everything bright to bloom equally.",
             "type": "float",
-            "default": 0.65,
+            "default": 0.55,
             "min": 0.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-radius": {
             "name": "Bloom: Radius",
             "description": "Scales the blur step size. Larger values spread the glow further at the cost of some fidelity.",
             "type": "float",
-            "default": 1.5,
+            "default": 2.0,
             "min": 0.25,
             "max": 4.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-levels": {
             "name": "Bloom: Quality",
@@ -83,7 +103,10 @@
             "default": 3,
             "min": 1,
             "max": 3,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "bloom-scale": {
             "name": "Bloom: Resolution Scale",
@@ -92,16 +115,34 @@
             "default": 0.5,
             "min": 0.25,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "bloom-spread": {
+            "name": "Bloom: Spread",
+            "description": "How large the halo around a light source reads. Low values keep the glow tight against the object; high values let the widest blur levels through and give the big soft halo of showcase footage.",
+            "type": "float",
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "streak-intensity": {
             "name": "Streaks: Intensity",
-            "description": "Horizontal anamorphic light streaks off bright points, like a cinema lens. Needs bloom enabled. 0 disables them.",
+            "description": "Horizontal anamorphic light streaks off bright points, like a cinema lens. Off by default: showcase levels glow radially rather than streaking. Needs bloom enabled.",
             "type": "float",
-            "default": 0.45,
+            "default": 0.0,
             "min": 0.0,
             "max": 2.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "streak-length": {
             "name": "Streaks: Length",
@@ -110,25 +151,34 @@
             "default": 1.4,
             "min": 0.25,
             "max": 4.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "clarity": {
             "name": "Clarity: Amount",
             "description": "Local contrast. Lifts edge and material detail so the frame reads as though it has depth. This is doing most of the work in making the picture look three dimensional. 0 disables it.",
             "type": "float",
-            "default": 0.4,
+            "default": 0.12,
             "min": 0.0,
             "max": 1.5,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "clarity-radius": {
             "name": "Clarity: Radius",
             "description": "Radius in pixels. Small values sharpen and can halo, larger values give broad depth instead.",
             "type": "float",
-            "default": 6.0,
+            "default": 3.5,
             "min": 1.0,
             "max": 16.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "tonemap-enabled": {
             "name": "Grade: Filmic Tonemapping",
@@ -140,64 +190,85 @@
             "name": "Grade: Exposure",
             "description": "Overall brightness multiplier applied before tonemapping.",
             "type": "float",
-            "default": 1.08,
+            "default": 1.05,
             "min": 0.25,
             "max": 2.5,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "black-point": {
             "name": "Grade: Black Point",
             "description": "Crushes the darkest values to true black. A little of this is most of what separates graded footage from a filter.",
             "type": "float",
-            "default": 0.035,
+            "default": 0.05,
             "min": 0.0,
             "max": 0.2,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "contrast": {
             "name": "Grade: Contrast",
             "description": "1.0 leaves contrast untouched.",
             "type": "float",
-            "default": 1.12,
+            "default": 1.1,
             "min": 0.5,
             "max": 2.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "saturation": {
             "name": "Grade: Saturation",
             "description": "0 is greyscale, 1.0 is untouched.",
             "type": "float",
-            "default": 1.22,
+            "default": 1.25,
             "min": 0.0,
             "max": 2.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "split-shadow": {
             "name": "Grade: Shadow Tone",
             "description": "Tints the shadows only. Positive values cool them towards blue, which is the classic cinematic split.",
             "type": "float",
-            "default": 0.4,
+            "default": 0.2,
             "min": -1.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "split-highlight": {
             "name": "Grade: Highlight Tone",
             "description": "Tints the highlights only. Positive values warm them towards orange.",
             "type": "float",
-            "default": 0.35,
+            "default": 0.0,
             "min": -1.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "temperature": {
             "name": "Grade: Temperature",
             "description": "Whole-image white balance. Negative values cool towards blue, positive values warm towards orange.",
             "type": "float",
-            "default": 0.1,
+            "default": 0.0,
             "min": -1.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "tint": {
             "name": "Grade: Tint",
@@ -206,34 +277,46 @@
             "default": 0.0,
             "min": -1.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "vignette": {
             "name": "Lens: Vignette",
             "description": "Darkens the corners of the screen. 0 disables it.",
             "type": "float",
-            "default": 0.35,
+            "default": 0.1,
             "min": 0.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "chromatic": {
             "name": "Lens: Chromatic Aberration",
             "description": "Splits red and blue towards the edges of the screen, like a real camera lens. 0 disables it.",
             "type": "float",
-            "default": 0.18,
+            "default": 0.06,
             "min": 0.0,
             "max": 1.0,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "grain": {
             "name": "Lens: Film Grain",
             "description": "Adds animated noise. Keep this very low; 0 disables it.",
             "type": "float",
-            "default": 0.015,
+            "default": 0.0,
             "min": 0.0,
             "max": 0.15,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         },
         "dither": {
             "name": "Lens: Dithering",
@@ -248,7 +331,10 @@
             "default": 0,
             "min": 0,
             "max": 3,
-            "control": { "slider": true, "input": true }
+            "control": {
+                "slider": true,
+                "input": true
+            }
         }
     }
 }

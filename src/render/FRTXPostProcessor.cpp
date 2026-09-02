@@ -265,14 +265,17 @@ void PostProcessor::buildStreaks(FRTXConfig const& cfg) {
 }
 
 void PostProcessor::present(FRTXConfig const& cfg) {
-    // Weights fall off per level so the tight glow dominates and the wider
-    // levels only add atmosphere. Normalising them keeps "intensity" meaning the
-    // same thing whatever the level count is.
+    // How fast the per level weights fall off decides how big the halo reads.
+    // A steep falloff keeps the glow tight around the object; a flat one lets
+    // the widest levels through and gives the large soft halo that showcase
+    // footage has around every light source. Normalising keeps "intensity"
+    // meaning the same thing whatever the level count is.
     float weights[kMaxBloomLevels] = {0.0f, 0.0f, 0.0f};
     if (cfg.bloomEnabled && m_activeLevels > 0) {
+        float const falloff = 0.5f + 0.5f * cfg.bloomSpread;
         float sum = 0.0f;
         for (int i = 0; i < m_activeLevels; ++i) {
-            weights[i] = std::pow(0.75f, static_cast<float>(i));
+            weights[i] = std::pow(falloff, static_cast<float>(i));
             sum += weights[i];
         }
         for (int i = 0; i < m_activeLevels; ++i) weights[i] /= sum;
@@ -318,7 +321,9 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
     m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);
-    m_composite.set2f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight);
+    // 0.25 is enough headroom for real detail while staying well short of the
+    // contrast that would show as a ring.
+    m_composite.set3f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight, 0.25f);
 
     setReplaceBlend();
     drawFullscreenQuad();
