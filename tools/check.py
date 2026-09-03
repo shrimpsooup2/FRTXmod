@@ -11,6 +11,7 @@ otherwise only surface on a Windows CI runner minutes later:
   3. Every uniform the C++ sets exists in the shader it targets, and vice
      versa, with matching component counts.
   4. Every GLSL blob is brace and paren balanced.
+  5. The tuner matches the arrow key codes the input layer really sends.
 
 Run from the repo root:  python3 tools/check.py
 """
@@ -112,6 +113,22 @@ def check_defaults_match_showcase():
                     f"'{key}': mod.json default {spec['default']} != Showcase {wanted}")
 
 
+def check_tuner_uses_real_arrow_keys():
+    """The tuner must match the arrow codes the input layer actually sends.
+
+    cocos' enumKeyCodes carries two arrow families: KEY_Up/Down/Left/Right,
+    which are the Windows virtual key codes, and KEY_ArrowUp and friends at
+    0x11B, which nothing on Windows produces. v0.6.0 shipped matching only the
+    second set, so the tuner opened but could not be navigated at all.
+    """
+    tuner = (ROOT / 'src/ui/FRTXTuner.cpp').read_text()
+    for key in ('KEY_Up', 'KEY_Down', 'KEY_Left', 'KEY_Right'):
+        if f'case {key}:' not in tuner:
+            problems.append(
+                f"tuner does not handle {key}; the arrow keys the Windows input "
+                f"layer sends would be ignored")
+
+
 def check_shader_uniforms():
     shaders = (ROOT / 'src/render/FRTXShaders.hpp').read_text()
     cpp = (ROOT / 'src/render/FRTXPostProcessor.cpp').read_text()
@@ -174,6 +191,7 @@ def main():
     check_generated_files_are_current()
     check_setting_defaults()
     check_defaults_match_showcase()
+    check_tuner_uses_real_arrow_keys()
     check_shader_uniforms()
 
     if problems:

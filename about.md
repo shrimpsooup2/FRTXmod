@@ -11,13 +11,26 @@ and the result is graded before it reaches your screen.
 ## Start here
 
 A fresh install already looks like **Showcase**. The preset buttons at the top
-of the settings write their values in for you:
+of the settings write their values in for you.
+
+**Intensity**
 
 - **Subtle**: the look without the drama. Safe for actually playing.
 - **Showcase**: what these levels look like in a video.
 - **Overkill**: too much, on purpose.
 - **Performance**: for keeping frames. Smaller bloom buffers, one fewer blur
   level, and everything that costs fill rate switched off.
+
+**Styles** — different looks rather than different amounts
+
+- **Neon**: for glow-heavy levels. Only strongly saturated things bloom, and
+  broad bright areas are held back hard.
+- **Cinematic**: filmic warmth, cool shadows, heavy vignette and grain.
+- **Dreamy**: a wide low-threshold haze instead of a glow. Soft and low
+  contrast.
+- **Noir**: monochrome, hard contrast, deep vignette.
+- **Vivid**: punch from colour and contrast rather than from glow.
+- **Sunbeam**: the one preset that turns light rays on.
 
 A preset is a starting point, not a lock. It writes its values into the
 settings once, and every slider stays editable afterwards.
@@ -33,8 +46,10 @@ them while the game is running. The key is rebindable.
 | Left / Right | adjust the selected value |
 | Shift | coarse, 10x the step |
 | Alt | fine, a tenth of the step |
+| Page Up / Down | jump a screenful |
+| Home / End | first / last setting |
 | R | reset the selected value |
-| 1 - 4 | apply Subtle / Showcase / Overkill / Performance |
+| 0 - 9 | apply a preset, in the order listed above |
 | Escape | close |
 
 Arrow keys are swallowed while the panel is open, so tuning does not also make
@@ -45,6 +60,12 @@ you jump.
 - **Emissive bloom** — the bright pass is biased towards saturated colour, so
   neon, glow objects and particles bleed light while a bright background stays
   where it is. Pure white still glows, because plenty of GD glow is white.
+- **Background suppression** — saturation alone does not separate a glowing
+  object from a bright *saturated* backdrop, so the glow is also weighted by how
+  much brighter a pixel is than a wide neighbourhood around it. A lone bright
+  object keeps its halo; a broad bright wash loses most of it. Raise
+  **Bloom: Background Suppression** when a bright sky is blooming as hard as the
+  objects in front of it.
 - **Light rays** — shafts radiating from a fixed point or from the player.
 - **Anamorphic streaks** — horizontal light streaks, the way a cinema lens
   flares. Off in Showcase, since showcase levels glow radially; Overkill uses

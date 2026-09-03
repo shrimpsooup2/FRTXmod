@@ -36,6 +36,8 @@ FRTX_FLOAT("bloom-intensity", bloomIntensity, "Intensity", 0.0f, 4.0f, 1.6f, 0.0
 FRTX_FLOAT("bloom-threshold", bloomThreshold, "Threshold", 0.0f, 1.5f, 0.52f, 0.01f)
 FRTX_FLOAT("bloom-knee", bloomKnee, "Soft Knee", 0.0f, 1.0f, 0.45f, 0.01f)
 FRTX_FLOAT("bloom-emissive-bias", emissiveBias, "Emissive Bias", 0.0f, 1.0f, 0.55f, 0.01f)
+FRTX_FLOAT("bloom-bg-suppress", bgSuppress, "Background Suppression", 0.0f, 1.0f, 0.35f, 0.01f)
+FRTX_FLOAT("bloom-bg-radius", bgRadius, "Background Scale", 0.02f, 0.4f, 0.14f, 0.01f)
 FRTX_FLOAT("bloom-radius", bloomRadius, "Radius", 0.25f, 4.0f, 2.0f, 0.05f)
 FRTX_FLOAT("bloom-spread", bloomSpread, "Spread", 0.0f, 1.0f, 0.8f, 0.01f)
 FRTX_INT("bloom-levels", bloomLevels, "Levels", 1, 3, 3, 1)

@@ -43,6 +43,25 @@ namespace {
         }
     }
 
+    // Returns the roster index a digit key selects, or -1. 1-9 pick the first
+    // nine presets and 0 picks the tenth, which is as far as one row of digits
+    // stretches.
+    int presetForKey(cocos2d::enumKeyCodes key) {
+        switch (key) {
+            case cocos2d::KEY_One:   return 0;
+            case cocos2d::KEY_Two:   return 1;
+            case cocos2d::KEY_Three: return 2;
+            case cocos2d::KEY_Four:  return 3;
+            case cocos2d::KEY_Five:  return 4;
+            case cocos2d::KEY_Six:   return 5;
+            case cocos2d::KEY_Seven: return 6;
+            case cocos2d::KEY_Eight: return 7;
+            case cocos2d::KEY_Nine:  return 8;
+            case cocos2d::KEY_Zero:  return 9;
+            default: return -1;
+        }
+    }
+
     std::string formatValue(FRTXParam const& p) {
         char buffer[32];
         double const value = readValue(p);
@@ -134,7 +153,7 @@ bool FRTXTuner::build() {
     }
 
     m_hint = CCLabelBMFont::create(
-        "arrows move/adjust  shift coarse  alt fine  R reset  1-4 preset", "chatFont.fnt");
+        "arrows move/adjust  shift coarse  alt fine  R reset  0-9 preset", "chatFont.fnt");
     if (!m_hint) return false;
     m_hint->setAnchorPoint(ccp(0.0f, 0.5f));
     m_hint->setScale(kTextScale * 0.85f);
@@ -185,6 +204,10 @@ void FRTXTuner::refresh() {
     if (m_selected >= m_scroll + kVisibleRows) m_scroll = m_selected - kVisibleRows + 1;
     m_scroll = std::clamp(m_scroll, 0, std::max(0, kFRTXParamCount - kVisibleRows));
 
+    m_title->setString(m_status.empty()
+        ? "FRTX Live Tuner"
+        : ("FRTX Live Tuner  -  " + m_status).c_str());
+
     float const panelHeight = m_panel->getContentSize().height;
 
     for (int row = 0; row < kVisibleRows; ++row) {
@@ -225,6 +248,16 @@ void FRTXTuner::moveSelection(int delta) {
     this->refresh();
 }
 
+void FRTXTuner::movePage(int direction) {
+    for (int i = 0; i < kVisibleRows - 2; ++i) this->moveSelection(direction);
+}
+
+void FRTXTuner::moveToEnd(int direction) {
+    m_selected = direction < 0 ? 0 : kFRTXParamCount - 1;
+    if (!this->selectable(m_selected)) this->moveSelection(direction < 0 ? 1 : -1);
+    else this->refresh();
+}
+
 void FRTXTuner::adjust(int direction, KeyboardModifier mods) {
     if (!this->selectable(m_selected)) return;
     auto const& p = kFRTXParams[m_selected];
@@ -252,23 +285,38 @@ bool FRTXTuner::handleKey(KeyboardInputData& data) {
     if (!m_open) return false;
     if (data.action == KeyboardInputData::Action::Release) return false;
 
+    // enumKeyCodes carries two arrow families: KEY_Up/Down/Left/Right, which are
+    // the Windows virtual key codes and what the input layer actually sends, and
+    // KEY_ArrowUp and friends at 0x11B, which it does not. Matching only the
+    // latter is why navigation did nothing at all; accept both.
     switch (data.key) {
+        case KEY_Up:
         case KEY_ArrowUp:    this->moveSelection(-1); return true;
+        case KEY_Down:
         case KEY_ArrowDown:  this->moveSelection(1); return true;
+        case KEY_Left:
         case KEY_ArrowLeft:  this->adjust(-1, data.modifiers); return true;
+        case KEY_Right:
         case KEY_ArrowRight: this->adjust(1, data.modifiers); return true;
-        case KEY_PageUp:     this->moveSelection(-1); this->moveSelection(-1);
-                             this->moveSelection(-1); return true;
-        case KEY_PageDown:   this->moveSelection(1); this->moveSelection(1);
-                             this->moveSelection(1); return true;
+        case KEY_PageUp:     this->movePage(-1); return true;
+        case KEY_PageDown:   this->movePage(1); return true;
+        case KEY_Home:       this->moveToEnd(-1); return true;
+        case KEY_End:        this->moveToEnd(1); return true;
         case KEY_R:          this->resetSelected(); return true;
-        case KEY_One:        FRTXConfig::applyPreset(FRTXPreset::Subtle); this->refresh(); return true;
-        case KEY_Two:        FRTXConfig::applyPreset(FRTXPreset::Showcase); this->refresh(); return true;
-        case KEY_Three:      FRTXConfig::applyPreset(FRTXPreset::Overkill); this->refresh(); return true;
-        case KEY_Four:       FRTXConfig::applyPreset(FRTXPreset::Performance); this->refresh(); return true;
         case KEY_Escape:     this->toggle(); return true;
-        default:             return false;
+        default:             break;
     }
+
+    // Number keys apply presets, in the order they appear in the roster.
+    int const preset = presetForKey(data.key);
+    if (preset >= 0 && preset < kFRTXPresetCount) {
+        FRTXConfig::applyPreset(kFRTXPresets[preset].preset);
+        m_status = kFRTXPresets[preset].label;
+        this->refresh();
+        return true;
+    }
+
+    return false;
 }
 
 void FRTXTuner::registerListeners() {
@@ -287,12 +335,14 @@ void FRTXTuner::registerListeners() {
 
     // Applying a preset writes its values into the settings, so every slider
     // stays live afterwards.
-    ButtonSettingPressedEventV3(Mod::get(), "presets")
-        .listen([](std::string_view button) -> bool {
-            if (button == "subtle") FRTXConfig::applyPreset(FRTXPreset::Subtle);
-            else if (button == "showcase") FRTXConfig::applyPreset(FRTXPreset::Showcase);
-            else if (button == "overkill") FRTXConfig::applyPreset(FRTXPreset::Overkill);
-            else if (button == "performance") FRTXConfig::applyPreset(FRTXPreset::Performance);
-            return false;
-        }).leak();
+    auto const onPreset = [](std::string_view button) -> bool {
+        FRTXPreset preset;
+        if (frtxPresetFromId(std::string(button).c_str(), preset)) {
+            FRTXConfig::applyPreset(preset);
+            if (auto tuner = FRTXTuner::getIfExists()) tuner->refresh();
+        }
+        return false;
+    };
+    ButtonSettingPressedEventV3(Mod::get(), "presets").listen(onPreset).leak();
+    ButtonSettingPressedEventV3(Mod::get(), "style-presets").listen(onPreset).leak();
 }

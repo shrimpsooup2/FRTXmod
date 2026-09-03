@@ -5,7 +5,7 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.6.0",
+    "version": "v0.7.0",
     "developers": [
         "shrimpsooup2"
     ],
@@ -30,6 +30,19 @@
                 "showcase": "Showcase",
                 "overkill": "Overkill",
                 "performance": "Performance"
+            }
+        },
+        "style-presets": {
+            "name": "Styles",
+            "description": "Different looks rather than different intensities. Neon suits glow-heavy levels, Cinematic goes for filmic warmth, Dreamy for a soft wide haze, Noir for monochrome contrast, Vivid for punch with little glow, and Sunbeam turns on light rays.",
+            "type": "button",
+            "buttons": {
+                "neon": "Neon",
+                "cinematic": "Cinematic",
+                "dreamy": "Dreamy",
+                "noir": "Noir",
+                "vivid": "Vivid",
+                "sunbeam": "Sunbeam"
             }
         },
         "tuner-key": {
@@ -126,6 +139,30 @@
             "default": 0.55,
             "min": 0.0,
             "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "bloom-bg-suppress": {
+            "name": "Background Suppression",
+            "description": "Reduces glow in areas whose surroundings are already bright, so a lone bright object keeps its halo while a big washed-out background loses most of it. Raise this when a bright sky is blooming as hard as the objects in front of it.",
+            "type": "float",
+            "default": 0.35,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "bloom-bg-radius": {
+            "name": "Background Scale",
+            "description": "How wide a neighbourhood counts as 'the background', as a fraction of screen height. Large values only suppress screen-scale washes; small values also dim the middle of big glowing objects.",
+            "type": "float",
+            "default": 0.14,
+            "min": 0.02,
+            "max": 0.4,
             "control": {
                 "slider": true,
                 "input": true

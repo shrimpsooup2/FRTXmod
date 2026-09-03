@@ -18,12 +18,22 @@ struct FRTXColor {
 };
 
 enum class FRTXPreset {
-    Custom = 0,
-    Subtle = 1,
-    Showcase = 2,
-    Overkill = 3,
-    Performance = 4,
+#define FRTX_PRESET(name, id, label) name,
+#include "FRTXPresets.inc"
+    Count,
 };
+
+struct FRTXPresetInfo {
+    char const* id;     // the mod.json button id
+    char const* label;
+    FRTXPreset preset;
+};
+
+extern FRTXPresetInfo const kFRTXPresets[];
+extern int const kFRTXPresetCount;
+
+// Maps a mod.json button id to its preset. Returns false for anything unknown.
+bool frtxPresetFromId(char const* id, FRTXPreset& out);
 
 struct FRTXConfig {
 #define FRTX_FLOAT(key, member, label, lo, hi, def, step) float member = def;

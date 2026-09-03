@@ -4,8 +4,26 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 using namespace geode::prelude;
+
+FRTXPresetInfo const kFRTXPresets[] = {
+#define FRTX_PRESET(name, id, label) {id, label, FRTXPreset::name},
+#include "FRTXPresets.inc"
+};
+
+int const kFRTXPresetCount = static_cast<int>(sizeof(kFRTXPresets) / sizeof(kFRTXPresets[0]));
+
+bool frtxPresetFromId(char const* id, FRTXPreset& out) {
+    for (int i = 0; i < kFRTXPresetCount; ++i) {
+        if (std::strcmp(kFRTXPresets[i].id, id) == 0) {
+            out = kFRTXPresets[i].preset;
+            return true;
+        }
+    }
+    return false;
+}
 
 namespace {
     float readFloat(char const* key, float fallback, float lo, float hi) {
@@ -33,8 +51,6 @@ namespace {
     // whole look. A set of values that agree with each other beats forty-odd
     // controls that are each individually reasonable.
     void presetInto(FRTXConfig& cfg, FRTXPreset preset) {
-        if (preset == FRTXPreset::Custom) return;
-
         // Everything the presets share. Colours and the light ray shape are
         // left alone so a preset never silently discards a tint the user
         // picked, and rays stay off unless a preset explicitly wants them.
@@ -49,12 +65,152 @@ namespace {
         cfg.dither = true;
         cfg.vignetteRoundness = 0.5f;
         cfg.vignetteSoftness = 0.5f;
+        cfg.bgRadius = 0.14f;
 
         switch (preset) {
-            case FRTXPreset::Custom:
+            // Built for glow-heavy levels: only strongly saturated things are
+            // allowed to bloom, and broad bright areas are held back hard.
+            case FRTXPreset::Neon:
+                cfg.bgSuppress = 0.55f;
+                cfg.bloomIntensity = 1.50f;
+                cfg.bloomThreshold = 0.55f;
+                cfg.bloomKnee = 0.35f;
+                cfg.bloomRadius = 1.8f;
+                cfg.bloomSpread = 0.70f;
+                cfg.emissiveBias = 0.85f;
+                cfg.exposure = 1.05f;
+                cfg.contrast = 1.12f;
+                cfg.saturation = 1.40f;
+                cfg.clarity = 0.10f;
+                cfg.clarityRadius = 3.0f;
+                cfg.blackPoint = 0.060f;
+                cfg.splitShadow = 0.35f;
+                cfg.splitHighlight = 0.0f;
+                cfg.vignette = 0.15f;
+                cfg.chromatic = 0.08f;
+                cfg.grain = 0.0f;
+                return;
+
+            case FRTXPreset::Cinematic:
+                cfg.bgSuppress = 0.40f;
+                cfg.bloomIntensity = 1.10f;
+                cfg.bloomThreshold = 0.70f;
+                cfg.bloomKnee = 0.40f;
+                cfg.bloomRadius = 2.2f;
+                cfg.bloomSpread = 0.85f;
+                cfg.emissiveBias = 0.40f;
+                cfg.exposure = 1.02f;
+                cfg.contrast = 1.15f;
+                cfg.saturation = 1.05f;
+                cfg.temperature = 0.08f;
+                cfg.clarity = 0.25f;
+                cfg.clarityRadius = 6.0f;
+                cfg.blackPoint = 0.055f;
+                cfg.splitShadow = 0.45f;
+                cfg.splitHighlight = 0.40f;
+                cfg.vignette = 0.45f;
+                cfg.chromatic = 0.20f;
+                cfg.grain = 0.020f;
+                return;
+
+            // Wide, low threshold and low contrast: haze rather than glow.
+            case FRTXPreset::Dreamy:
+                cfg.bgSuppress = 0.10f;
+                cfg.bloomIntensity = 1.50f;
+                cfg.bloomThreshold = 0.40f;
+                cfg.bloomKnee = 0.60f;
+                cfg.bloomRadius = 3.0f;
+                cfg.bloomSpread = 0.95f;
+                cfg.emissiveBias = 0.30f;
+                cfg.exposure = 1.05f;
+                cfg.contrast = 0.95f;
+                cfg.saturation = 1.10f;
+                cfg.clarity = 0.0f;
+                cfg.blackPoint = 0.0f;
+                cfg.splitShadow = 0.20f;
+                cfg.splitHighlight = 0.20f;
+                cfg.vignette = 0.25f;
+                cfg.chromatic = 0.10f;
+                cfg.grain = 0.0f;
+                return;
+
+            case FRTXPreset::Noir:
+                cfg.bgSuppress = 0.35f;
+                cfg.bloomIntensity = 1.00f;
+                cfg.bloomThreshold = 0.70f;
+                cfg.bloomKnee = 0.30f;
+                cfg.bloomRadius = 1.8f;
+                cfg.bloomSpread = 0.60f;
+                cfg.emissiveBias = 0.20f;
+                cfg.exposure = 1.0f;
+                cfg.contrast = 1.45f;
+                cfg.saturation = 0.0f;
+                cfg.clarity = 0.35f;
+                cfg.clarityRadius = 5.0f;
+                cfg.blackPoint = 0.090f;
+                cfg.splitShadow = 0.0f;
+                cfg.splitHighlight = 0.0f;
+                cfg.vignette = 0.55f;
+                cfg.chromatic = 0.05f;
+                cfg.grain = 0.040f;
+                return;
+
+            // Punch without haze: colour and contrast do the work, not glow.
+            case FRTXPreset::Vivid:
+                cfg.bgSuppress = 0.50f;
+                cfg.bloomIntensity = 0.60f;
+                cfg.bloomThreshold = 0.85f;
+                cfg.bloomKnee = 0.25f;
+                cfg.bloomRadius = 1.2f;
+                cfg.bloomLevels = 2;
+                cfg.bloomSpread = 0.50f;
+                cfg.emissiveBias = 0.70f;
+                cfg.exposure = 1.03f;
+                cfg.contrast = 1.20f;
+                cfg.saturation = 1.50f;
+                cfg.clarity = 0.30f;
+                cfg.clarityRadius = 4.0f;
+                cfg.blackPoint = 0.050f;
+                cfg.splitShadow = 0.10f;
+                cfg.splitHighlight = 0.10f;
+                cfg.vignette = 0.10f;
+                cfg.chromatic = 0.0f;
+                cfg.grain = 0.0f;
+                return;
+
+            // The one preset that turns light rays on.
+            case FRTXPreset::Sunbeam:
+                cfg.bgSuppress = 0.30f;
+                cfg.bloomIntensity = 1.40f;
+                cfg.bloomThreshold = 0.60f;
+                cfg.bloomKnee = 0.40f;
+                cfg.bloomRadius = 2.0f;
+                cfg.bloomSpread = 0.85f;
+                cfg.emissiveBias = 0.50f;
+                cfg.raysIntensity = 0.60f;
+                cfg.raysDensity = 0.90f;
+                cfg.raysDecay = 0.960f;
+                cfg.raysWeight = 0.40f;
+                cfg.raysSamples = 28;
+                cfg.exposure = 1.06f;
+                cfg.contrast = 1.10f;
+                cfg.saturation = 1.20f;
+                cfg.temperature = 0.20f;
+                cfg.clarity = 0.15f;
+                cfg.clarityRadius = 4.0f;
+                cfg.blackPoint = 0.045f;
+                cfg.splitShadow = 0.30f;
+                cfg.splitHighlight = 0.40f;
+                cfg.vignette = 0.30f;
+                cfg.chromatic = 0.12f;
+                cfg.grain = 0.0f;
+                return;
+
+            case FRTXPreset::Count:
                 return;
 
             case FRTXPreset::Subtle:
+                cfg.bgSuppress = 0.30f;
                 cfg.bloomIntensity = 0.85f;
                 cfg.bloomThreshold = 0.70f;
                 cfg.bloomKnee = 0.35f;
@@ -80,6 +236,7 @@ namespace {
             // stays out of the way so the level's own neon palette carries the
             // image.
             case FRTXPreset::Showcase:
+                cfg.bgSuppress = 0.35f;
                 cfg.bloomIntensity = 1.60f;
                 cfg.bloomThreshold = 0.52f;
                 cfg.bloomKnee = 0.45f;
@@ -104,6 +261,7 @@ namespace {
             // pixel), no chromatic aberration (2 more), smaller bloom buffers
             // and one fewer blur level.
             case FRTXPreset::Performance:
+                cfg.bgSuppress = 0.40f;
                 cfg.bloomIntensity = 1.30f;
                 cfg.bloomThreshold = 0.60f;
                 cfg.bloomKnee = 0.40f;
@@ -126,6 +284,7 @@ namespace {
                 return;
 
             case FRTXPreset::Overkill:
+                cfg.bgSuppress = 0.20f;
                 cfg.bloomIntensity = 2.60f;
                 cfg.bloomThreshold = 0.35f;
                 cfg.bloomKnee = 0.50f;

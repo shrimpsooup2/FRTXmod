@@ -44,12 +44,14 @@ inline constexpr char const* PREFILTER = R"(
 uniform sampler2D u_source;
 uniform vec2 u_sourceUV;
 uniform vec2 u_texelSize;
-uniform vec4 u_filter; // x = threshold, y = knee, z = 1 / (4 * knee), w = emissive bias
+uniform vec4 u_filter;  // x = threshold, y = knee, z = 1 / (4 * knee), w = emissive bias
+uniform vec3 u_filter2; // x = background suppression, yz = wide sample offset in screen space
 
 varying vec2 v_texCoord;
 
 void main() {
-    vec2 uv = v_texCoord * u_sourceUV;
+    vec2 screenUV = v_texCoord;
+    vec2 uv = screenUV * u_sourceUV;
     vec2 o = u_texelSize;
 
     vec3 c = texture2D(u_source, uv + vec2(-o.x, -o.y)).rgb;
@@ -67,9 +69,32 @@ void main() {
 
     float contribution = max(soft, brightness - u_filter.x) / max(brightness, 0.0001);
 
+    // Saturation bias: GD's neon, glow objects and particles are strongly
+    // saturated, while skies and background gradients are bright but washed
+    // out. Pure whites are exempt, because plenty of GD glow is white.
     float saturation = (brightness - darkest) / max(brightness, 0.0001);
     float emissive = max(saturation, smoothstep(0.85, 1.0, brightness));
     contribution *= mix(1.0, emissive, u_filter.w);
+
+    // Background suppression. Saturation alone does not separate a glowing
+    // object from a bright saturated backdrop, so also ask how bright this
+    // pixel is *relative to a wide neighbourhood*. A lone bright object sits in
+    // darkness and keeps its halo; a pixel inside a broad wash has surroundings
+    // just as bright and loses most of it. The neighbourhood is deliberately
+    // screen-scale, so that a large glowing object is still small compared to
+    // it and does not get hollowed out.
+    if (u_filter2.x > 0.0) {
+        vec2 w = u_filter2.yz;
+        vec3 wide = texture2D(u_source, clamp(screenUV + vec2( w.x,  w.y), 0.0, 1.0) * u_sourceUV).rgb;
+        wide += texture2D(u_source, clamp(screenUV + vec2(-w.x,  w.y), 0.0, 1.0) * u_sourceUV).rgb;
+        wide += texture2D(u_source, clamp(screenUV + vec2( w.x, -w.y), 0.0, 1.0) * u_sourceUV).rgb;
+        wide += texture2D(u_source, clamp(screenUV + vec2(-w.x, -w.y), 0.0, 1.0) * u_sourceUV).rgb;
+        wide *= 0.25;
+
+        float around = max(wide.r, max(wide.g, wide.b));
+        float openness = clamp(1.0 - around / max(brightness, 0.0001), 0.0, 1.0);
+        contribution *= mix(1.0, openness, u_filter2.x);
+    }
 
     gl_FragColor = vec4(c * contribution, 1.0);
 }

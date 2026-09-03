@@ -238,6 +238,10 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
         m_prefilter.set2f("u_texelSize", m_scene.texelW, m_scene.texelH);
         m_prefilter.set4f("u_filter", cfg.bloomThreshold, knee, 1.0f / (4.0f * knee),
             cfg.emissiveBias);
+        // The radius is a fraction of screen height, so the horizontal offset is
+        // divided by the aspect ratio to sample a square neighbourhood.
+        m_prefilter.set3f("u_filter2", cfg.bgSuppress,
+            cfg.bgRadius / std::max(m_aspect, 0.0001f), cfg.bgRadius);
         bindTexture(0, m_scene.textureName());
         setReplaceBlend();
         drawFullscreenQuad();

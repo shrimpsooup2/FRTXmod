@@ -2,6 +2,8 @@
 
 #include <Geode/Geode.hpp>
 
+#include <string>
+
 // An in-game overlay for adjusting every setting while the game is running.
 //
 // A shader chain has too many interacting knobs to tune through a settings
@@ -31,13 +33,18 @@ public:
     // along when the scene changes underneath it.
     void tick();
 
+    // Redraws the rows from the current setting values. Public because a
+    // preset applied from the settings menu needs the open panel to catch up.
+    void refresh();
+
 private:
     static constexpr int kVisibleRows = 18;
 
     bool init() override;
     bool build();
-    void refresh();
     void moveSelection(int delta);
+    void movePage(int direction);
+    void moveToEnd(int direction);
     void adjust(int direction, geode::KeyboardModifier mods);
     void resetSelected();
     bool handleKey(geode::KeyboardInputData& data);
@@ -48,6 +55,7 @@ private:
 
     bool m_open = false;
     bool m_usable = false;
+    std::string m_status;
     int  m_selected = 0;
     int  m_scroll = 0;
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.7.0
+
+- **Fixes tuner navigation.** cocos' `enumKeyCodes` carries two arrow families:
+  `KEY_Up`/`Down`/`Left`/`Right`, which are the Windows virtual key codes and
+  what the input layer actually sends, and `KEY_ArrowUp` and friends at 0x11B,
+  which nothing on Windows produces. The tuner matched only the second set, so
+  it opened but could not be navigated at all. It now accepts both, and
+  `tools/check.py` fails if the real codes ever stop being handled.
+- **Six style presets**: Neon, Cinematic, Dreamy, Noir, Vivid and Sunbeam,
+  alongside the four intensity presets. The roster is generated, so the buttons,
+  the `FRTXPreset` enum and the tuner's number keys cannot disagree.
+- **Background suppression.** Saturation bias does not separate a glowing object
+  from a bright *saturated* backdrop, which is why bright backgrounds could
+  bloom as hard as the objects in front of them. The bright pass now also
+  weights by how much brighter a pixel is than a wide, screen-scale
+  neighbourhood. The neighbourhood is deliberately large so a big glowing object
+  is still small compared to it and does not get hollowed out.
+- Tuner gains Page Up/Down and Home/End, a status line confirming a preset was
+  applied, and number keys for all ten presets.
+
 ## v0.6.0
 
 **Fixes settings not working.** The preset was a value that got re-applied on
