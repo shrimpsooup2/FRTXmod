@@ -129,6 +129,21 @@ def check_tuner_uses_real_arrow_keys():
                 f"layer sends would be ignored")
 
 
+def check_preset_buttons_are_listened_for():
+    """Every button setting must have a listener, or its buttons do nothing.
+
+    The roster is generated, so it is easy to add a new button group to
+    mod.json and forget that the press has to be subscribed to separately.
+    """
+    mod = json.loads((ROOT / 'mod.json').read_text())
+    tuner = (ROOT / 'src/ui/FRTXTuner.cpp').read_text()
+    for key, spec in mod['settings'].items():
+        if spec.get('type') == 'button' and f'"{key}"' not in tuner:
+            problems.append(
+                f"button setting '{key}' has no ButtonSettingPressedEventV3 listener; "
+                f"its buttons would do nothing")
+
+
 def check_shader_uniforms():
     shaders = (ROOT / 'src/render/FRTXShaders.hpp').read_text()
     cpp = (ROOT / 'src/render/FRTXPostProcessor.cpp').read_text()
@@ -192,6 +207,7 @@ def main():
     check_setting_defaults()
     check_defaults_match_showcase()
     check_tuner_uses_real_arrow_keys()
+    check_preset_buttons_are_listened_for()
     check_shader_uniforms()
 
     if problems:

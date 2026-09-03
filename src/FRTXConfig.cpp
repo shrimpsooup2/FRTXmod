@@ -66,6 +66,18 @@ namespace {
         cfg.vignetteRoundness = 0.5f;
         cfg.vignetteSoftness = 0.5f;
         cfg.bgRadius = 0.14f;
+        // Ray shape and lens extras start from neutral, so a preset that does
+        // not mention them cannot inherit another preset's sun.
+        cfg.raysJitter = 0.9f;
+        cfg.raysOcclusion = 0.5f;
+        cfg.raysShimmer = 0.0f;
+        cfg.raysSun = 0.0f;
+        cfg.raysSunSize = 0.08f;
+        cfg.raysOriginMode = 0;
+        cfg.flareIntensity = 0.0f;
+        cfg.flareSpacing = 0.35f;
+        cfg.halation = 0.0f;
+        cfg.lensDistortion = 0.0f;
 
         switch (preset) {
             // Built for glow-heavy levels: only strongly saturated things are
@@ -204,6 +216,201 @@ namespace {
                 cfg.vignette = 0.30f;
                 cfg.chromatic = 0.12f;
                 cfg.grain = 0.0f;
+                return;
+
+            // A low warm sun throwing long shafts across the frame.
+            case FRTXPreset::Dawn:
+                cfg.bgSuppress = 0.30f;
+                cfg.bloomIntensity = 1.50f;
+                cfg.bloomThreshold = 0.55f;
+                cfg.bloomKnee = 0.40f;
+                cfg.bloomRadius = 2.2f;
+                cfg.bloomSpread = 0.85f;
+                cfg.emissiveBias = 0.45f;
+                cfg.raysIntensity = 0.75f;
+                cfg.raysDensity = 1.10f;
+                cfg.raysDecay = 0.970f;
+                cfg.raysWeight = 0.42f;
+                cfg.raysSamples = 32;
+                cfg.raysOriginX = 0.50f;
+                cfg.raysOriginY = 0.12f;
+                cfg.raysSun = 0.50f;
+                cfg.raysSunSize = 0.10f;
+                cfg.raysShimmer = 0.15f;
+                cfg.raysOcclusion = 0.60f;
+                cfg.exposure = 1.06f;
+                cfg.contrast = 1.08f;
+                cfg.saturation = 1.20f;
+                cfg.temperature = 0.35f;
+                cfg.clarity = 0.12f;
+                cfg.clarityRadius = 4.0f;
+                cfg.blackPoint = 0.040f;
+                cfg.splitShadow = 0.30f;
+                cfg.splitHighlight = 0.50f;
+                cfg.vignette = 0.35f;
+                cfg.chromatic = 0.12f;
+                cfg.halation = 0.25f;
+                cfg.grain = 0.010f;
+                return;
+
+            // Hard shafts dropping from a source above the frame. The origin
+            // sits off screen, which is what makes them parallel rather than
+            // fanning out of a visible point.
+            case FRTXPreset::Cathedral:
+                cfg.bgSuppress = 0.45f;
+                cfg.bloomIntensity = 1.20f;
+                cfg.bloomThreshold = 0.65f;
+                cfg.bloomKnee = 0.35f;
+                cfg.bloomRadius = 1.8f;
+                cfg.bloomSpread = 0.75f;
+                cfg.emissiveBias = 0.50f;
+                cfg.raysIntensity = 0.90f;
+                cfg.raysDensity = 0.75f;
+                cfg.raysDecay = 0.940f;
+                cfg.raysWeight = 0.45f;
+                cfg.raysSamples = 36;
+                cfg.raysOriginX = 0.50f;
+                cfg.raysOriginY = 1.15f;
+                cfg.raysShimmer = 0.10f;
+                cfg.raysOcclusion = 0.75f;
+                cfg.exposure = 1.0f;
+                cfg.contrast = 1.25f;
+                cfg.saturation = 1.05f;
+                cfg.temperature = -0.10f;
+                cfg.clarity = 0.20f;
+                cfg.clarityRadius = 5.0f;
+                cfg.blackPoint = 0.070f;
+                cfg.splitShadow = 0.50f;
+                cfg.splitHighlight = 0.15f;
+                cfg.vignette = 0.50f;
+                cfg.chromatic = 0.08f;
+                cfg.grain = 0.0f;
+                return;
+
+            // Dark frame around a small, fierce corona.
+            case FRTXPreset::Eclipse:
+                cfg.bgSuppress = 0.60f;
+                cfg.bloomIntensity = 1.10f;
+                cfg.bloomThreshold = 0.72f;
+                cfg.bloomKnee = 0.30f;
+                cfg.bloomRadius = 1.6f;
+                cfg.bloomSpread = 0.60f;
+                cfg.emissiveBias = 0.60f;
+                cfg.raysIntensity = 1.20f;
+                cfg.raysDensity = 0.55f;
+                cfg.raysDecay = 0.900f;
+                cfg.raysWeight = 0.50f;
+                cfg.raysSamples = 40;
+                cfg.raysOriginX = 0.50f;
+                cfg.raysOriginY = 0.60f;
+                cfg.raysSun = 1.20f;
+                cfg.raysSunSize = 0.045f;
+                cfg.raysShimmer = 0.25f;
+                cfg.raysOcclusion = 0.35f;
+                cfg.exposure = 0.95f;
+                cfg.contrast = 1.30f;
+                cfg.saturation = 1.10f;
+                cfg.clarity = 0.20f;
+                cfg.clarityRadius = 4.0f;
+                cfg.blackPoint = 0.100f;
+                cfg.splitShadow = 0.40f;
+                cfg.splitHighlight = 0.10f;
+                cfg.vignette = 0.60f;
+                cfg.chromatic = 0.18f;
+                cfg.flareIntensity = 0.30f;
+                cfg.flareSpacing = 0.30f;
+                cfg.grain = 0.0f;
+                return;
+
+            // Cool, hazy and slow-moving: the shimmer does most of the work.
+            case FRTXPreset::Aurora:
+                cfg.bgSuppress = 0.15f;
+                cfg.bloomIntensity = 1.70f;
+                cfg.bloomThreshold = 0.45f;
+                cfg.bloomKnee = 0.55f;
+                cfg.bloomRadius = 2.8f;
+                cfg.bloomSpread = 0.95f;
+                cfg.emissiveBias = 0.40f;
+                cfg.raysIntensity = 0.50f;
+                cfg.raysDensity = 1.30f;
+                cfg.raysDecay = 0.975f;
+                cfg.raysWeight = 0.30f;
+                cfg.raysSamples = 30;
+                cfg.raysOriginX = 0.50f;
+                cfg.raysOriginY = 1.05f;
+                cfg.raysShimmer = 0.50f;
+                cfg.raysOcclusion = 0.30f;
+                cfg.exposure = 1.05f;
+                cfg.contrast = 1.0f;
+                cfg.saturation = 1.30f;
+                cfg.temperature = -0.25f;
+                cfg.tint = 0.15f;
+                cfg.clarity = 0.0f;
+                cfg.blackPoint = 0.020f;
+                cfg.splitShadow = 0.35f;
+                cfg.splitHighlight = -0.20f;
+                cfg.vignette = 0.20f;
+                cfg.chromatic = 0.10f;
+                cfg.grain = 0.0f;
+                return;
+
+            // A hot sun close to the camera, with film halation doing the rest.
+            case FRTXPreset::Inferno:
+                cfg.bgSuppress = 0.20f;
+                cfg.bloomIntensity = 2.00f;
+                cfg.bloomThreshold = 0.50f;
+                cfg.bloomKnee = 0.45f;
+                cfg.bloomRadius = 2.4f;
+                cfg.bloomSpread = 0.90f;
+                cfg.emissiveBias = 0.35f;
+                cfg.raysIntensity = 0.85f;
+                cfg.raysDensity = 0.90f;
+                cfg.raysDecay = 0.955f;
+                cfg.raysWeight = 0.45f;
+                cfg.raysSamples = 30;
+                cfg.raysOriginX = 0.50f;
+                cfg.raysOriginY = 0.50f;
+                cfg.raysSun = 0.80f;
+                cfg.raysSunSize = 0.14f;
+                cfg.raysShimmer = 0.30f;
+                cfg.raysOcclusion = 0.40f;
+                cfg.exposure = 1.10f;
+                cfg.contrast = 1.15f;
+                cfg.saturation = 1.35f;
+                cfg.temperature = 0.50f;
+                cfg.clarity = 0.10f;
+                cfg.blackPoint = 0.050f;
+                cfg.splitShadow = 0.20f;
+                cfg.splitHighlight = 0.60f;
+                cfg.vignette = 0.35f;
+                cfg.chromatic = 0.20f;
+                cfg.halation = 0.60f;
+                cfg.grain = 0.015f;
+                return;
+
+            // Cheap optics on purpose: fringing, curvature and grain.
+            case FRTXPreset::Retro:
+                cfg.bgSuppress = 0.35f;
+                cfg.bloomIntensity = 1.20f;
+                cfg.bloomThreshold = 0.60f;
+                cfg.bloomKnee = 0.35f;
+                cfg.bloomRadius = 1.6f;
+                cfg.bloomSpread = 0.65f;
+                cfg.emissiveBias = 0.50f;
+                cfg.exposure = 1.0f;
+                cfg.contrast = 1.15f;
+                cfg.saturation = 1.15f;
+                cfg.temperature = 0.12f;
+                cfg.clarity = 0.15f;
+                cfg.clarityRadius = 3.0f;
+                cfg.blackPoint = 0.040f;
+                cfg.splitShadow = 0.25f;
+                cfg.splitHighlight = 0.25f;
+                cfg.vignette = 0.50f;
+                cfg.chromatic = 0.55f;
+                cfg.lensDistortion = 0.12f;
+                cfg.flareIntensity = 0.15f;
+                cfg.grain = 0.060f;
                 return;
 
             case FRTXPreset::Count:

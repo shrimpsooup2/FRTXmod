@@ -154,31 +154,64 @@ uniform sampler2D u_source;
 uniform vec2 u_sourceUV;
 uniform vec2 u_origin;   // light position in normalised screen space
 uniform vec4 u_params;   // x = density, y = decay, z = weight, w = normalisation
+uniform vec4 u_ray2;     // x = jitter, y = sun intensity, z = sun size, w = shimmer
+uniform vec2 u_rayMisc;  // x = aspect, y = time
 uniform float u_samples;
 
 varying vec2 v_texCoord;
 
+float rayHash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main() {
     vec2 uv = v_texCoord;
-    vec2 delta = (uv - u_origin) * (u_params.x / max(u_samples, 1.0));
+    vec2 toOrigin = uv - u_origin;
 
-    vec3 accum = texture2D(u_source, uv * u_sourceUV).rgb;
-    vec2 coord = uv;
+    float weight = u_params.z;
+    if (u_ray2.w > 0.0) {
+        // Vary strength with the angle around the source, slowly, so the fan of
+        // shafts breathes instead of sitting perfectly still.
+        float angle = atan(toOrigin.y, toOrigin.x);
+        weight *= 1.0 + u_ray2.w * 0.5 * sin(angle * 11.0 + u_rayMisc.y * 1.3);
+    }
+
+    vec2 delta = toOrigin * (u_params.x / max(u_samples, 1.0));
+
+    // Start each pixel a random fraction of one step along the ray. Marching
+    // from the same distances for every pixel is what produces the concentric
+    // stepping that gives cheap god rays away; jittering turns that banding
+    // into fine noise, which reads as grain rather than as an artefact.
+    float jitter = rayHash(uv * 543.21 + fract(u_rayMisc.y)) * u_ray2.x;
+    vec2 coord = uv - delta * jitter;
+
+    vec3 accum = vec3(0.0);
     float illumination = 1.0;
 
     // The bound is a compile time constant because GLSL ES 1.00 requires it;
     // the break is what actually honours the sample count.
     for (int i = 0; i < 48; ++i) {
         if (float(i) >= u_samples) break;
-        coord -= delta;
         // Clamping in screen space keeps the march from wandering into the
         // padding of a power-of-two padded target.
-        vec2 tap = clamp(coord, 0.0, 1.0) * u_sourceUV;
-        accum += texture2D(u_source, tap).rgb * illumination * u_params.z;
+        vec2 tap = clamp(coord, 0.0, 1.0);
+        accum += texture2D(u_source, tap * u_sourceUV).rgb * illumination * weight;
         illumination *= u_params.y;
+        coord -= delta;
     }
 
-    gl_FragColor = vec4(accum * u_params.w, 1.0);
+    accum *= u_params.w;
+
+    // A visible source, so the shafts have something to come from rather than
+    // radiating out of nowhere.
+    if (u_ray2.y > 0.0) {
+        vec2 d = toOrigin * vec2(u_rayMisc.x, 1.0);
+        float size = max(u_ray2.z, 0.001);
+        float disc = exp(-dot(d, d) / (size * size));
+        accum += vec3(disc * u_ray2.y);
+    }
+
+    gl_FragColor = vec4(accum, 1.0);
 }
 )";
 
@@ -191,6 +224,7 @@ uniform sampler2D u_bloom1;
 uniform sampler2D u_bloom2;
 uniform sampler2D u_streakTex;
 uniform sampler2D u_raysTex;
+uniform sampler2D u_halationTex;
 
 uniform vec2 u_sceneUV;
 uniform vec2 u_bloomUV0;
@@ -198,6 +232,7 @@ uniform vec2 u_bloomUV1;
 uniform vec2 u_bloomUV2;
 uniform vec2 u_streakUV;
 uniform vec2 u_raysUV;
+uniform vec2 u_halationUV;
 
 uniform vec4 u_bloom;     // xyz = per level weights, w = intensity
 uniform vec3 u_bloomTint;
@@ -209,6 +244,8 @@ uniform vec4 u_vignette;  // x = strength, y = roundness, z = inner, w = outer
 uniform vec4 u_misc;      // x = aspect, y = time, z = debug view, w = unused
 uniform vec2 u_grade;     // x = temperature, y = tint
 uniform vec4 u_grade2;    // x = black point, y = shadow split, z = highlight split
+uniform vec4 u_flare;     // x = ghost intensity, y = spacing, z = halation, w = ray occlusion
+uniform vec2 u_lens2;     // x = barrel distortion, y = unused
 uniform vec4 u_clarity;   // x = amount, y = radius in screen uv, z = detail clamp, w = use 8 taps
 
 varying vec2 v_texCoord;
@@ -278,6 +315,15 @@ vec3 applyClarity(vec3 color, vec2 screenUV) {
 void main() {
     vec2 uv = v_texCoord;
 
+    // Lens distortion has to come first: everything downstream samples through
+    // this coordinate, so bending it here bends the whole image rather than
+    // just one layer of it.
+    if (u_lens2.x != 0.0) {
+        vec2 centred = uv - vec2(0.5);
+        uv = vec2(0.5) + centred * (1.0 + u_lens2.x * dot(centred, centred));
+        uv = clamp(uv, 0.0, 1.0);
+    }
+
     vec3 color = sampleScene(uv, u_lens.x);
     if (u_clarity.x > 0.0) {
         color = applyClarity(color, uv);
@@ -302,6 +348,36 @@ void main() {
     vec3 rays = vec3(0.0);
     if (dot(u_rays, vec3(1.0)) > 0.0) {
         rays = texture2D(u_raysTex, uv * u_raysUV).rgb * u_rays;
+        // Light shafts are light in the air between the camera and the source,
+        // so something solid and dark in front of them should block them.
+        // Without this they wash over the player and read as a flat overlay.
+        if (u_flare.w > 0.0) {
+            float sceneLuma = dot(color, LUMA);
+            rays *= mix(1.0, smoothstep(0.0, 0.35, sceneLuma), u_flare.w);
+        }
+    }
+
+    // Ghost images of bright areas, mirrored through the centre of the screen
+    // the way light bounces between the elements of a real lens.
+    vec3 ghosts = vec3(0.0);
+    if (u_flare.x > 0.0 && u_bloom.x > 0.0) {
+        vec2 toCentre = vec2(0.5) - uv;
+        for (int g = 1; g <= 4; ++g) {
+            vec2 sampleUV = uv + toCentre * (float(g) * u_flare.y);
+            float falloff = 1.0 - clamp(length(sampleUV - vec2(0.5)) * 1.7, 0.0, 1.0);
+            ghosts += texture2D(u_bloom0, clamp(sampleUV, 0.0, 1.0) * u_bloomUV0).rgb
+                    * falloff * falloff;
+        }
+        ghosts *= u_flare.x * 0.25;
+    }
+
+    // Halation is not more bloom: film scatters light back through its own base
+    // and it returns wide, soft and strongly red. Driving it from the widest
+    // bloom level and tinting it hard is what separates the two.
+    vec3 halation = vec3(0.0);
+    if (u_flare.z > 0.0) {
+        halation = texture2D(u_halationTex, uv * u_halationUV).rgb
+                 * u_flare.z * vec3(1.0, 0.32, 0.18);
     }
 
     if (u_misc.z > 0.5 && u_misc.z < 1.5) {
@@ -316,12 +392,16 @@ void main() {
         gl_FragColor = vec4(streak, 1.0);
         return;
     }
-    if (u_misc.z > 3.5) {
+    if (u_misc.z > 3.5 && u_misc.z < 4.5) {
         gl_FragColor = vec4(rays, 1.0);
         return;
     }
+    if (u_misc.z > 4.5) {
+        gl_FragColor = vec4(ghosts + halation, 1.0);
+        return;
+    }
 
-    color += bloom + streak + rays;
+    color += bloom + streak + rays + ghosts + halation;
 
     color *= u_tone.x;
     if (u_tone.w > 0.5) {

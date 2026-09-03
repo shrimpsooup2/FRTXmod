@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.8.0
+
+Light rays get most of the attention, plus three new lens effects and six more
+presets.
+
+**Rays**
+
+- **Jittered sampling.** Every pixel used to march from the same distances,
+  which is what produces the concentric stepping that gives cheap god rays
+  away. Starting each pixel a random fraction of a step along the ray turns
+  that banding into fine noise instead, and costs nothing.
+- **Occlusion.** Rays now dim where the scene in front of them is dark, so
+  shafts pass behind solid objects rather than washing over them. This is most
+  of what makes them read as light in the air.
+- **Sun disc.** An optional glowing source at the origin, so shafts have
+  something to come from.
+- **Shimmer.** Strength varies slowly with angle around the source, so the fan
+  breathes instead of sitting still.
+- **Off-screen origins.** The origin range now extends past the screen edges,
+  which is what makes near-parallel shafts possible.
+
+**New effects**
+
+- **Lens flare ghosts**, mirrored through the screen centre.
+- **Halation**, a warm red bleed driven from the widest blur level. Not more
+  bloom: wide, soft and strongly coloured.
+- **Lens distortion**, barrel or pincushion.
+
+**Presets** now number sixteen, with a third row built around the ray pass:
+Dawn, Cathedral, Eclipse, Aurora and Inferno, plus Retro. Shift plus a number
+key reaches the second bank of ten in the tuner.
+
+`tools/check.py` also now fails if a button setting has no listener, since a
+generated roster makes it easy to add buttons that quietly do nothing.
+
 ## v0.7.0
 
 - **Fixes tuner navigation.** cocos' `enumKeyCodes` carries two arrow families:

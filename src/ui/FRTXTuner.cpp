@@ -153,7 +153,7 @@ bool FRTXTuner::build() {
     }
 
     m_hint = CCLabelBMFont::create(
-        "arrows move/adjust  shift coarse  alt fine  R reset  0-9 preset", "chatFont.fnt");
+        "arrows move/adjust  shift coarse  alt fine  R reset  0-9 / shift preset", "chatFont.fnt");
     if (!m_hint) return false;
     m_hint->setAnchorPoint(ccp(0.0f, 0.5f));
     m_hint->setScale(kTextScale * 0.85f);
@@ -307,12 +307,16 @@ bool FRTXTuner::handleKey(KeyboardInputData& data) {
         default:             break;
     }
 
-    // Number keys apply presets, in the order they appear in the roster.
-    int const preset = presetForKey(data.key);
-    if (preset >= 0 && preset < kFRTXPresetCount) {
-        FRTXConfig::applyPreset(kFRTXPresets[preset].preset);
-        m_status = kFRTXPresets[preset].label;
-        this->refresh();
+    // Number keys apply presets in roster order; there are more presets than
+    // digits, so Shift reaches the second bank of ten.
+    int index = presetForKey(data.key);
+    if (index >= 0) {
+        if (data.modifiers & KeyboardModifier::Shift) index += 10;
+        if (index < kFRTXPresetCount) {
+            FRTXConfig::applyPreset(kFRTXPresets[index].preset);
+            m_status = kFRTXPresets[index].label;
+            this->refresh();
+        }
         return true;
     }
 
@@ -345,4 +349,5 @@ void FRTXTuner::registerListeners() {
     };
     ButtonSettingPressedEventV3(Mod::get(), "presets").listen(onPreset).leak();
     ButtonSettingPressedEventV3(Mod::get(), "style-presets").listen(onPreset).leak();
+    ButtonSettingPressedEventV3(Mod::get(), "ray-presets").listen(onPreset).leak();
 }

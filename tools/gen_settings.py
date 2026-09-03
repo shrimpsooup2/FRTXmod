@@ -34,8 +34,8 @@ SPEC = [
      "Draw the gameplay UI on top of the effect instead of through it, so the attempt counter and progress bar stay crisp.",
      None, None, False, None),
     (INT, "debug-view", "debugView", "Debug View",
-     "0 = normal, 1 = captured scene, 2 = bloom, 3 = streaks, 4 = light rays. Invaluable for setting the bloom threshold.",
-     0, 4, 0, 1),
+     "0 = normal, 1 = captured scene, 2 = bloom, 3 = streaks, 4 = light rays, 5 = flare and halation. Invaluable for setting the bloom threshold.",
+     0, 5, 0, 1),
 
     (TITLE, None, None, "Bloom", None, None, None, None, None),
     (BOOL, "bloom-enabled", "bloomEnabled", "Bloom",
@@ -98,16 +98,43 @@ SPEC = [
     (INT, "rays-samples", "raysSamples", "Samples",
      "Samples per pixel. The single biggest cost in this pass; lower it first if rays are slow.",
      8, 48, 24, 2),
+    (FLOAT, "rays-jitter", "raysJitter", "Jitter",
+     "Randomises where along the ray each pixel starts sampling. Without it every pixel samples at the same distances and the shafts show concentric stepping; with it that banding becomes fine noise instead. Costs nothing.",
+     0.0, 1.0, 0.9, 0.01),
+    (FLOAT, "rays-occlusion", "raysOcclusion", "Occlusion",
+     "Dims rays where the scene in front of them is dark, so shafts pass behind solid objects instead of over them. This is most of what makes them read as light in the air rather than as an overlay.",
+     0.0, 1.0, 0.5, 0.01),
+    (FLOAT, "rays-shimmer", "raysShimmer", "Shimmer",
+     "Slowly varies ray strength with angle, like light moving through disturbed air. Subtle values only.",
+     0.0, 1.0, 0.0, 0.01),
+    (FLOAT, "rays-sun", "raysSun", "Sun Disc",
+     "Draws a glowing disc at the ray origin, so the shafts have a visible source. 0 leaves the origin invisible.",
+     0.0, 2.0, 0.0, 0.02),
+    (FLOAT, "rays-sun-size", "raysSunSize", "Sun Size",
+     "Radius of that disc, as a fraction of screen height.", 0.01, 0.4, 0.08, 0.005),
     (INT, "rays-origin-mode", "raysOriginMode", "Origin",
      "0 = a fixed point on screen, 1 = follow the player.", 0, 1, 0, 1),
     (FLOAT, "rays-origin-x", "raysOriginX", "Origin X",
-     "Horizontal position of the light source, 0 is the left edge and 1 the right. Used when Origin is 0.",
-     0.0, 1.0, 0.5, 0.01),
+     "Horizontal position of the light source. 0 is the left edge and 1 the right; values outside that put the sun off screen, which shafts still reach in from.",
+     -0.5, 1.5, 0.5, 0.01),
     (FLOAT, "rays-origin-y", "raysOriginY", "Origin Y",
-     "Vertical position of the light source, 0 is the bottom edge and 1 the top. Used when Origin is 0.",
-     0.0, 1.0, 0.78, 0.01),
+     "Vertical position of the light source. 0 is the bottom edge and 1 the top; values outside that put the sun off screen.",
+     -0.5, 1.5, 0.78, 0.01),
     (COLOR, "rays-tint", "raysTint", "Tint",
      "Colours the shafts. A warm tint reads as sunlight.", None, None, (255, 238, 204), None),
+
+    (TITLE, None, None, "Lens Flare", None, None, None, None, None),
+    (FLOAT, "flare-intensity", "flareIntensity", "Ghosts",
+     "Ghost images of bright areas mirrored through the centre of the screen, the way light bounces between lens elements. Needs bloom enabled. 0 disables the pass.",
+     0.0, 1.0, 0.0, 0.01),
+    (FLOAT, "flare-spacing", "flareSpacing", "Ghost Spacing",
+     "How far apart the ghosts sit along the line through the screen centre.", 0.1, 1.0, 0.35, 0.01),
+    (FLOAT, "halation", "halation", "Halation",
+     "A warm red bleed around highlights, the way film stock scatters light back through its own base. Very different from bloom: it is wide, soft and strongly coloured.",
+     0.0, 1.0, 0.0, 0.01),
+    (FLOAT, "lens-distortion", "lensDistortion", "Distortion",
+     "Barrel distortion at positive values, pincushion at negative. Small amounts read as a real lens; large ones as a fisheye.",
+     -0.3, 0.3, 0.0, 0.005),
 
     (TITLE, None, None, "Clarity", None, None, None, None, None),
     (FLOAT, "clarity", "clarity", "Amount",
@@ -165,6 +192,12 @@ PRESETS = [
     ("Noir",        "noir",        "Noir",        "style"),
     ("Vivid",       "vivid",       "Vivid",       "style"),
     ("Sunbeam",     "sunbeam",     "Sunbeam",     "style"),
+    ("Dawn",        "dawn",        "Dawn",        "rays"),
+    ("Cathedral",   "cathedral",   "Cathedral",   "rays"),
+    ("Eclipse",     "eclipse",     "Eclipse",     "rays"),
+    ("Aurora",      "aurora",      "Aurora",      "rays"),
+    ("Inferno",     "inferno",     "Inferno",     "rays"),
+    ("Retro",       "retro",       "Retro",       "style"),
 ]
 
 
@@ -228,6 +261,16 @@ def gen_mod_json():
         ("type", "button"),
         ("buttons", collections.OrderedDict(
             [(i, l) for _n, i, l, g in PRESETS if g == "core"])),
+    ])
+    settings["ray-presets"] = collections.OrderedDict([
+        ("name", "Light Ray Styles"),
+        ("description", "Presets built around the light ray pass. Dawn is a low warm sun with long "
+                        "shafts, Cathedral drops hard shafts from overhead, Eclipse is a dark frame "
+                        "around a tight corona, Aurora is cool and hazy, and Inferno is a hot "
+                        "close sun with heavy halation."),
+        ("type", "button"),
+        ("buttons", collections.OrderedDict(
+            [(i, l) for _n, i, l, g in PRESETS if g == "rays"])),
     ])
     settings["style-presets"] = collections.OrderedDict([
         ("name", "Styles"),

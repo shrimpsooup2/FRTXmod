@@ -30,7 +30,18 @@ of the settings write their values in for you.
   contrast.
 - **Noir**: monochrome, hard contrast, deep vignette.
 - **Vivid**: punch from colour and contrast rather than from glow.
-- **Sunbeam**: the one preset that turns light rays on.
+- **Sunbeam**: a straightforward sun with visible shafts.
+- **Retro**: cheap optics on purpose — fringing, curvature and grain.
+
+**Light ray styles**
+
+- **Dawn**: a low warm sun throwing long shafts across the frame.
+- **Cathedral**: hard shafts dropping from a source above the screen. The
+  origin sits off screen, which is what makes them read as near-parallel
+  instead of fanning out of a visible point.
+- **Eclipse**: a dark frame around a small, fierce corona, with lens ghosts.
+- **Aurora**: cool and hazy, with the shimmer doing most of the work.
+- **Inferno**: a hot sun close to the camera and heavy film halation.
 
 A preset is a starting point, not a lock. It writes its values into the
 settings once, and every slider stays editable afterwards.
@@ -50,6 +61,7 @@ them while the game is running. The key is rebindable.
 | Home / End | first / last setting |
 | R | reset the selected value |
 | 0 - 9 | apply a preset, in the order listed above |
+| Shift + 0 - 9 | the second bank of ten presets |
 | Escape | close |
 
 Arrow keys are swallowed while the panel is open, so tuning does not also make
@@ -66,7 +78,16 @@ you jump.
   object keeps its halo; a broad bright wash loses most of it. Raise
   **Bloom: Background Suppression** when a bright sky is blooming as hard as the
   objects in front of it.
-- **Light rays** — shafts radiating from a fixed point or from the player.
+- **Light rays** — shafts radiating from a point, which can sit off screen.
+  Jittered sampling keeps them from banding into concentric steps, an occlusion
+  term dims them behind solid objects so they read as light in the air rather
+  than as an overlay, an optional sun disc gives them a visible source, and a
+  shimmer term makes the fan breathe.
+- **Lens flare** — ghost images of bright areas mirrored through the centre of
+  the screen, the way light bounces between real lens elements.
+- **Halation** — a warm red bleed around highlights, the way film scatters light
+  back through its own base. Wider, softer and far more coloured than bloom.
+- **Lens distortion** — barrel or pincushion curvature.
 - **Anamorphic streaks** — horizontal light streaks, the way a cinema lens
   flares. Off in Showcase, since showcase levels glow radially; Overkill uses
   them.
@@ -103,5 +124,5 @@ setting to reach for. Tuning by hand, in order of how much each buys:
 ## Tuning tips
 
 Use **Debug View** while you tune: `2` shows only the bloom, `3` only the
-streaks, `4` only the rays. It makes it obvious whether **Bloom: Threshold** and
+streaks, `4` only the rays, `5` only the flare and halation. It makes it obvious whether **Bloom: Threshold** and
 **Bloom: Emissive Bias** are catching the things you actually want glowing.

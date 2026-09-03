@@ -19,5 +19,11 @@ FRTX_PRESET(Dreamy, "dreamy", "Dreamy")
 FRTX_PRESET(Noir, "noir", "Noir")
 FRTX_PRESET(Vivid, "vivid", "Vivid")
 FRTX_PRESET(Sunbeam, "sunbeam", "Sunbeam")
+FRTX_PRESET(Dawn, "dawn", "Dawn")
+FRTX_PRESET(Cathedral, "cathedral", "Cathedral")
+FRTX_PRESET(Eclipse, "eclipse", "Eclipse")
+FRTX_PRESET(Aurora, "aurora", "Aurora")
+FRTX_PRESET(Inferno, "inferno", "Inferno")
+FRTX_PRESET(Retro, "retro", "Retro")
 
 #undef FRTX_PRESET

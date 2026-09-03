@@ -316,6 +316,8 @@ void PostProcessor::buildRays(FRTXConfig const& cfg) {
     m_rayProgram.set2f("u_sourceUV", m_bloom[0].uvW, m_bloom[0].uvH);
     m_rayProgram.set2f("u_origin", originX, originY);
     m_rayProgram.set4f("u_params", cfg.raysDensity, cfg.raysDecay, cfg.raysWeight, normalisation);
+    m_rayProgram.set4f("u_ray2", cfg.raysJitter, cfg.raysSun, cfg.raysSunSize, cfg.raysShimmer);
+    m_rayProgram.set2f("u_rayMisc", m_aspect, m_time);
     m_rayProgram.set1f("u_samples", samples);
     bindTexture(0, m_bloom[0].textureName());
     setReplaceBlend();
@@ -375,6 +377,14 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set2f("u_raysUV", raySource.uvW, raySource.uvH);
     bindTexture(5, raySource.textureName());
 
+    // Halation wants the widest blur available, which is not necessarily level
+    // 2: the level count is a setting.
+    Target const& halationSource =
+        (cfg.bloomEnabled && m_activeLevels > 0) ? m_bloom[m_activeLevels - 1] : m_scene;
+    m_composite.set1i("u_halationTex", 6);
+    m_composite.set2f("u_halationUV", halationSource.uvW, halationSource.uvH);
+    bindTexture(6, halationSource.textureName());
+
     // Bind unit 0 last so cocos gets the texture unit back the way it expects.
     bindTexture(0, m_scene.textureName());
 
@@ -404,6 +414,9 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     float const inner = outer - (0.15f + 0.6f * cfg.vignetteSoftness);
     m_composite.set4f("u_vignette", cfg.vignette, cfg.vignetteRoundness, inner, outer);
 
+    m_composite.set4f("u_flare", cfg.flareIntensity, cfg.flareSpacing, cfg.halation,
+        cfg.raysEnabled() ? cfg.raysOcclusion : 0.0f);
+    m_composite.set2f("u_lens2", cfg.lensDistortion, 0.0f);
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
     m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);

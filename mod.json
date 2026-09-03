@@ -5,11 +5,11 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.7.0",
+    "version": "v0.8.0",
     "developers": [
         "shrimpsooup2"
     ],
-    "description": "RTX-style post processing for Geometry Dash: emissive bloom, light rays, clarity and cinematic grading, with a live in-game tuner.",
+    "description": "RTX-style post processing for Geometry Dash: emissive bloom, volumetric light rays, lens flare, halation and cinematic grading, with a live in-game tuner.",
     "repository": "https://github.com/shrimpsooup2/FRTXmod",
     "settings": {
         "title-quickstart": {
@@ -32,6 +32,18 @@
                 "performance": "Performance"
             }
         },
+        "ray-presets": {
+            "name": "Light Ray Styles",
+            "description": "Presets built around the light ray pass. Dawn is a low warm sun with long shafts, Cathedral drops hard shafts from overhead, Eclipse is a dark frame around a tight corona, Aurora is cool and hazy, and Inferno is a hot close sun with heavy halation.",
+            "type": "button",
+            "buttons": {
+                "dawn": "Dawn",
+                "cathedral": "Cathedral",
+                "eclipse": "Eclipse",
+                "aurora": "Aurora",
+                "inferno": "Inferno"
+            }
+        },
         "style-presets": {
             "name": "Styles",
             "description": "Different looks rather than different intensities. Neon suits glow-heavy levels, Cinematic goes for filmic warmth, Dreamy for a soft wide haze, Noir for monochrome contrast, Vivid for punch with little glow, and Sunbeam turns on light rays.",
@@ -42,7 +54,8 @@
                 "dreamy": "Dreamy",
                 "noir": "Noir",
                 "vivid": "Vivid",
-                "sunbeam": "Sunbeam"
+                "sunbeam": "Sunbeam",
+                "retro": "Retro"
             }
         },
         "tuner-key": {
@@ -76,11 +89,11 @@
         },
         "debug-view": {
             "name": "Debug View",
-            "description": "0 = normal, 1 = captured scene, 2 = bloom, 3 = streaks, 4 = light rays. Invaluable for setting the bloom threshold.",
+            "description": "0 = normal, 1 = captured scene, 2 = bloom, 3 = streaks, 4 = light rays, 5 = flare and halation. Invaluable for setting the bloom threshold.",
             "type": "int",
             "default": 0,
             "min": 0,
-            "max": 4,
+            "max": 5,
             "control": {
                 "slider": true,
                 "input": true
@@ -328,6 +341,66 @@
                 "input": true
             }
         },
+        "rays-jitter": {
+            "name": "Jitter",
+            "description": "Randomises where along the ray each pixel starts sampling. Without it every pixel samples at the same distances and the shafts show concentric stepping; with it that banding becomes fine noise instead. Costs nothing.",
+            "type": "float",
+            "default": 0.9,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-occlusion": {
+            "name": "Occlusion",
+            "description": "Dims rays where the scene in front of them is dark, so shafts pass behind solid objects instead of over them. This is most of what makes them read as light in the air rather than as an overlay.",
+            "type": "float",
+            "default": 0.5,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-shimmer": {
+            "name": "Shimmer",
+            "description": "Slowly varies ray strength with angle, like light moving through disturbed air. Subtle values only.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-sun": {
+            "name": "Sun Disc",
+            "description": "Draws a glowing disc at the ray origin, so the shafts have a visible source. 0 leaves the origin invisible.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 2.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "rays-sun-size": {
+            "name": "Sun Size",
+            "description": "Radius of that disc, as a fraction of screen height.",
+            "type": "float",
+            "default": 0.08,
+            "min": 0.01,
+            "max": 0.4,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
         "rays-origin-mode": {
             "name": "Origin",
             "description": "0 = a fixed point on screen, 1 = follow the player.",
@@ -342,11 +415,11 @@
         },
         "rays-origin-x": {
             "name": "Origin X",
-            "description": "Horizontal position of the light source, 0 is the left edge and 1 the right. Used when Origin is 0.",
+            "description": "Horizontal position of the light source. 0 is the left edge and 1 the right; values outside that put the sun off screen, which shafts still reach in from.",
             "type": "float",
             "default": 0.5,
-            "min": 0.0,
-            "max": 1.0,
+            "min": -0.5,
+            "max": 1.5,
             "control": {
                 "slider": true,
                 "input": true
@@ -354,11 +427,11 @@
         },
         "rays-origin-y": {
             "name": "Origin Y",
-            "description": "Vertical position of the light source, 0 is the bottom edge and 1 the top. Used when Origin is 0.",
+            "description": "Vertical position of the light source. 0 is the bottom edge and 1 the top; values outside that put the sun off screen.",
             "type": "float",
             "default": 0.78,
-            "min": 0.0,
-            "max": 1.0,
+            "min": -0.5,
+            "max": 1.5,
             "control": {
                 "slider": true,
                 "input": true
@@ -375,6 +448,58 @@
             }
         },
         "title-5": {
+            "name": "Lens Flare",
+            "type": "title"
+        },
+        "flare-intensity": {
+            "name": "Ghosts",
+            "description": "Ghost images of bright areas mirrored through the centre of the screen, the way light bounces between lens elements. Needs bloom enabled. 0 disables the pass.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "flare-spacing": {
+            "name": "Ghost Spacing",
+            "description": "How far apart the ghosts sit along the line through the screen centre.",
+            "type": "float",
+            "default": 0.35,
+            "min": 0.1,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "halation": {
+            "name": "Halation",
+            "description": "A warm red bleed around highlights, the way film stock scatters light back through its own base. Very different from bloom: it is wide, soft and strongly coloured.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "lens-distortion": {
+            "name": "Distortion",
+            "description": "Barrel distortion at positive values, pincushion at negative. Small amounts read as a real lens; large ones as a fisheye.",
+            "type": "float",
+            "default": 0.0,
+            "min": -0.3,
+            "max": 0.3,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "title-6": {
             "name": "Clarity",
             "type": "title"
         },
@@ -414,7 +539,7 @@
                 "input": true
             }
         },
-        "title-6": {
+        "title-7": {
             "name": "Grade",
             "type": "title"
         },
@@ -520,7 +645,7 @@
                 "input": true
             }
         },
-        "title-7": {
+        "title-8": {
             "name": "Lens",
             "type": "title"
         },
