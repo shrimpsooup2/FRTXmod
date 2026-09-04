@@ -81,7 +81,7 @@ bloom strength does:
 
 ## The live tuner
 
-Press **F8** in a level (rebindable) for an overlay listing every setting, and
+Press **O** in a level (rebindable) for an overlay listing every setting, and
 adjust them while the game runs.
 
 | Key | Does |

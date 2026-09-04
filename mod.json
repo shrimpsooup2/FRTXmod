@@ -5,7 +5,7 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.9.0",
+    "version": "v0.10.0",
     "developers": [
         "shrimpsooup2"
     ],
@@ -18,7 +18,7 @@
         },
         "tuner-info": {
             "name": "Tune it in game",
-            "description": "Press F8 while playing a level to open an overlay with every setting below, and adjust them while the game runs. Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value, 1-4 apply a preset, Escape closes.",
+            "description": "Press O while playing a level to open an overlay with every setting below, and adjust them while the game runs. Arrow keys move and adjust, Shift is coarse, Alt is fine, R resets a value, 1-4 apply a preset, Escape closes.",
             "type": "info"
         },
         "presets": {
@@ -63,7 +63,7 @@
             "description": "Opens the in-game tuning overlay.",
             "type": "keybind",
             "category": "universal",
-            "default": "F8"
+            "default": "O"
         },
         "title-1": {
             "name": "General",

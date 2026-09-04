@@ -71,9 +71,9 @@ namespace {
         cfg.raysJitter = 0.9f;
         cfg.raysShimmer = 0.0f;
         cfg.raysSun = 0.0f;
+        cfg.raysSunSize = 0.08f;
         cfg.raysFadeOverDark = 0.0f;
         cfg.isolation = 0.8f;
-        cfg.raysSunSize = 0.08f;
         cfg.raysOriginMode = 0;
         cfg.flareIntensity = 0.0f;
         cfg.flareSpacing = 0.35f;
@@ -239,8 +239,6 @@ namespace {
                 cfg.raysSamples = 32;
                 cfg.raysOriginX = 0.50f;
                 cfg.raysOriginY = 0.12f;
-                cfg.raysSun = 0.50f;
-                cfg.raysSunSize = 0.10f;
                 cfg.raysShimmer = 0.15f;
                 cfg.exposure = 1.06f;
                 cfg.contrast = 1.08f;
@@ -308,8 +306,6 @@ namespace {
                 cfg.raysSamples = 40;
                 cfg.raysOriginX = 0.50f;
                 cfg.raysOriginY = 0.60f;
-                cfg.raysSun = 1.20f;
-                cfg.raysSunSize = 0.045f;
                 cfg.raysShimmer = 0.25f;
                 cfg.exposure = 0.95f;
                 cfg.contrast = 1.30f;
@@ -375,8 +371,6 @@ namespace {
                 cfg.raysSamples = 30;
                 cfg.raysOriginX = 0.50f;
                 cfg.raysOriginY = 0.50f;
-                cfg.raysSun = 0.80f;
-                cfg.raysSunSize = 0.14f;
                 cfg.raysShimmer = 0.30f;
                 cfg.exposure = 1.10f;
                 cfg.contrast = 1.15f;

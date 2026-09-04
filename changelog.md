@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.10.0
+
+- **Fixes the effect growing stronger in levels with shader triggers.**
+  `glClear` is clipped by the scissor box, and the game's own layers use
+  scissoring. With one enabled, the capture buffer was only partly cleared and
+  the rest kept the previous frame, which then got bloomed on top of the new
+  one -- and it stayed that way until a preset switch happened to reallocate
+  the buffers. Every pass now neutralises the scissor box and colour mask and
+  hands them straight back, so nothing we draw can be clipped and nothing the
+  game draws is affected.
+- **The sun disc no longer sits on screen permanently.** It is now gated on
+  light actually being present at the ray origin, so it fades in and out with
+  the level instead of hanging in one spot while the level scrolls past behind
+  it, and no preset ships with it enabled.
+- **The tuner opens with O** instead of F8. Still rebindable.
+- **The in-game description is now a full manual**: how to start, every tuner
+  key, what all sixteen presets are for, what each individual setting does, and
+  what to change when something looks wrong.
+
 ## v0.9.0
 
 Three bug fixes and one compatibility fix, all from playing it.

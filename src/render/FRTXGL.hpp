@@ -73,10 +73,19 @@ void bindTexture(int unit, GLuint textureName);
 struct GLViewportState {
     GLint fbo = 0;
     GLint viewport[4] = {0, 0, 0, 0};
+    GLboolean scissor = 0;
+    GLboolean colorMask[4] = {1, 1, 1, 1};
 };
 
 GLViewportState captureGLState();
 void restoreGLState(GLViewportState const& state);
+
+// glClear and every draw are clipped by the scissor box and masked by the
+// colour mask. The game's own layers use both, and a scissor left enabled is
+// enough to leave most of a render target holding the previous frame -- which
+// then gets bloomed on top of the new one. Neutralise both for our passes.
+void suspendClipping();
+void restoreClipping(GLViewportState const& state);
 
 // Renders into `target` without going through CCRenderTexture::begin(), and so
 // without disturbing any matrix, projection or viewport the game relies on.

@@ -248,7 +248,7 @@ def gen_mod_json():
         [("name", "Quick Start"), ("type", "title")])
     settings["tuner-info"] = collections.OrderedDict([
         ("name", "Tune it in game"),
-        ("description", "Press F8 while playing a level to open an overlay with every setting "
+        ("description", "Press O while playing a level to open an overlay with every setting "
                         "below, and adjust them while the game runs. Arrow keys move and adjust, "
                         "Shift is coarse, Alt is fine, R resets a value, 1-4 apply a preset, "
                         "Escape closes."),
@@ -290,7 +290,7 @@ def gen_mod_json():
         ("description", "Opens the in-game tuning overlay."),
         ("type", "keybind"),
         ("category", "universal"),
-        ("default", "F8"),
+        ("default", "O"),
     ])
 
     titles = 0

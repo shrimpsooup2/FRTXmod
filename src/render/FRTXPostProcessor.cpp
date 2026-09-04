@@ -60,11 +60,20 @@ bool PostProcessor::beginCapture(FrameInfo const& info) {
     // effect fight camera triggers.
     glBindFramebuffer(GL_FRAMEBUFFER, m_scene.fbo);
 
+    // The clear must not inherit the game's scissor box or colour mask. A
+    // scissor left enabled would wipe only part of the capture and leave the
+    // rest holding the previous frame, which then gets bloomed on top of this
+    // one -- the effect appearing to grow stronger the longer you look at it.
+    suspendClipping();
+
     GLfloat clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+
+    // Hand clipping straight back, so the game's own drawing is unaffected.
+    restoreClipping(m_savedState);
 
     m_capturing = true;
     return true;
@@ -78,6 +87,10 @@ void PostProcessor::endCapture() {
         restoreGLState(m_savedState);
         return;
     }
+
+    // Every pass below writes a full target, so none of them may be clipped by
+    // whatever the game had set up.
+    suspendClipping();
 
     m_time += CCDirector::sharedDirector()->getDeltaTime();
     if (m_time > 3600.0f) m_time = 0.0f;
@@ -465,8 +478,9 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     setReplaceBlend();
     drawFullscreenQuad();
 
-    // Hand cocos back the blend mode it expects for ordinary sprites.
+    // Hand cocos back the blend mode and clipping it expects.
     ccGLBlendFunc(CC_BLEND_SRC, CC_BLEND_DST);
+    restoreClipping(m_savedState);
 }
 
 }

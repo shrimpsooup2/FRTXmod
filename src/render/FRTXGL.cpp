@@ -166,12 +166,29 @@ GLViewportState captureGLState() {
     GLViewportState state;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &state.fbo);
     glGetIntegerv(GL_VIEWPORT, state.viewport);
+    state.scissor = glIsEnabled(GL_SCISSOR_TEST);
+    glGetBooleanv(GL_COLOR_WRITEMASK, state.colorMask);
     return state;
 }
 
 void restoreGLState(GLViewportState const& state) {
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(state.fbo));
     glViewport(state.viewport[0], state.viewport[1], state.viewport[2], state.viewport[3]);
+}
+
+void suspendClipping() {
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+}
+
+void restoreClipping(GLViewportState const& state) {
+    if (state.scissor) {
+        glEnable(GL_SCISSOR_TEST);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+    glColorMask(state.colorMask[0], state.colorMask[1],
+                state.colorMask[2], state.colorMask[3]);
 }
 
 void bindTargetForDrawing(Target const& target) {

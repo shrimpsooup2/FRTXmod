@@ -207,13 +207,26 @@ void main() {
 
     accum *= u_params.w;
 
-    // A visible source, so the shafts have something to come from rather than
-    // radiating out of nowhere.
+    // A visible source, so the shafts have something to come from. It is gated
+    // on light actually being present at the origin: a disc drawn
+    // unconditionally sits at a fixed point on screen while the level scrolls
+    // past behind it, which reads as a smudge on the lens rather than as a sun.
     if (u_ray2.y > 0.0) {
-        vec2 d = toOrigin * vec2(u_rayMisc.x, 1.0);
-        float size = max(u_ray2.z, 0.001);
-        float disc = exp(-dot(d, d) / (size * size));
-        accum += vec3(disc * u_ray2.y);
+        vec2 o = u_origin;
+        float probe = max(u_ray2.z * 0.5, 0.01);
+        vec3 atSource = texture2D(u_source, clamp(o + vec2( probe, 0.0), 0.0, 1.0) * u_sourceUV).rgb;
+        atSource += texture2D(u_source, clamp(o + vec2(-probe, 0.0), 0.0, 1.0) * u_sourceUV).rgb;
+        atSource += texture2D(u_source, clamp(o + vec2(0.0,  probe), 0.0, 1.0) * u_sourceUV).rgb;
+        atSource += texture2D(u_source, clamp(o + vec2(0.0, -probe), 0.0, 1.0) * u_sourceUV).rgb;
+        atSource *= 0.25;
+
+        float present = clamp(max(atSource.r, max(atSource.g, atSource.b)) * 3.0, 0.0, 1.0);
+        if (present > 0.0) {
+            vec2 d = (v_texCoord - o) * vec2(u_rayMisc.x, 1.0);
+            float size = max(u_ray2.z, 0.001);
+            float disc = exp(-dot(d, d) / (size * size));
+            accum += vec3(disc * u_ray2.y * present);
+        }
     }
 
     gl_FragColor = vec4(accum, 1.0);
