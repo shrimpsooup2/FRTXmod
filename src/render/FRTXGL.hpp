@@ -16,8 +16,16 @@ namespace frtx {
 struct Target {
     geode::Ref<cocos2d::CCRenderTexture> rt = nullptr;
 
+    // The framebuffer object behind the render texture, discovered once at
+    // creation. Binding it directly lets every pass avoid CCRenderTexture's
+    // begin()/end(), which reload the projection and reset the viewport and so
+    // would trample whatever the game has set up for its own camera effects.
+    GLuint fbo = 0;
+
     int   widthPoints  = 0;
     int   heightPoints = 0;
+    int   pixelWidth   = 0;
+    int   pixelHeight  = 0;
     float uvW    = 1.0f;
     float uvH    = 1.0f;
     float texelW = 0.0f;
@@ -59,6 +67,20 @@ private:
 // Binds `textureName` to the given texture unit through cocos' state cache, so
 // cocos does not later skip a bind it believes is already active.
 void bindTexture(int unit, GLuint textureName);
+
+// The framebuffer and viewport the game had bound, so they can be put back
+// exactly as they were.
+struct GLViewportState {
+    GLint fbo = 0;
+    GLint viewport[4] = {0, 0, 0, 0};
+};
+
+GLViewportState captureGLState();
+void restoreGLState(GLViewportState const& state);
+
+// Renders into `target` without going through CCRenderTexture::begin(), and so
+// without disturbing any matrix, projection or viewport the game relies on.
+void bindTargetForDrawing(Target const& target);
 
 // Draws a fullscreen quad in clip space with texture coordinates in
 // normalised screen space (0..1). Each shader scales those by the uv extent of

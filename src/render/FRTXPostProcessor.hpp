@@ -52,7 +52,7 @@ public:
 
 private:
     bool ensurePrograms();
-    bool ensureTargets(FRTXConfig const& cfg);
+    bool ensureTargets(FRTXConfig const& cfg, int viewportW, int viewportH);
     void releaseTargets();
 
     void buildBloom(FRTXConfig const& cfg);
@@ -63,6 +63,8 @@ private:
     void present(FRTXConfig const& cfg);
 
     bool m_capturing = false;
+    // What the game had bound before we started, restored exactly.
+    GLViewportState m_savedState;
     bool m_programsFailed = false;
 
     // Snapshot taken in beginCapture() and used by endCapture(), so both halves
@@ -72,8 +74,8 @@ private:
 
     bool  m_targetsValid = false;
     FRTXConfig m_targetConfig;
-    float m_targetWidth = 0.0f;
-    float m_targetHeight = 0.0f;
+    int   m_targetViewportW = 0;
+    int   m_targetViewportH = 0;
     float m_targetScaleFactor = 0.0f;
     int   m_activeLevels = 0;
 

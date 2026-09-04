@@ -5,7 +5,7 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.8.0",
+    "version": "v0.9.0",
     "developers": [
         "shrimpsooup2"
     ],
@@ -169,6 +169,18 @@
                 "input": true
             }
         },
+        "bloom-isolation": {
+            "name": "Isolation Boost",
+            "description": "Makes a bright thing surrounded by darkness glow harder than the same brightness in a bright area. Uses the same neighbourhood measurement as Background Suppression, in the opposite direction, and because light rays are built from the glow it gives isolated objects more rays too.",
+            "type": "float",
+            "default": 0.8,
+            "min": 0.0,
+            "max": 4.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
         "bloom-bg-radius": {
             "name": "Background Scale",
             "description": "How wide a neighbourhood counts as 'the background', as a fraction of screen height. Large values only suppress screen-scale washes; small values also dim the middle of big glowing objects.",
@@ -287,7 +299,7 @@
             "type": "float",
             "default": 0.0,
             "min": 0.0,
-            "max": 2.0,
+            "max": 6.0,
             "control": {
                 "slider": true,
                 "input": true
@@ -354,10 +366,10 @@
             }
         },
         "rays-occlusion": {
-            "name": "Occlusion",
-            "description": "Dims rays where the scene in front of them is dark, so shafts pass behind solid objects instead of over them. This is most of what makes them read as light in the air rather than as an overlay.",
+            "name": "Fade Over Dark",
+            "description": "Dims rays over dark parts of the screen. This is a stylistic choice, not a physical one: with no depth buffer the mod cannot tell a solid object from empty background, and in this game the dark areas are usually empty, which is exactly where shafts should show. Leave at 0 unless you want shafts confined to lit areas.",
             "type": "float",
-            "default": 0.5,
+            "default": 0.0,
             "min": 0.0,
             "max": 1.0,
             "control": {
@@ -457,7 +469,7 @@
             "type": "float",
             "default": 0.0,
             "min": 0.0,
-            "max": 1.0,
+            "max": 3.0,
             "control": {
                 "slider": true,
                 "input": true

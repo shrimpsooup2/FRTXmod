@@ -31,7 +31,7 @@ bool PostProcessor::beginCapture(FrameInfo const& info) {
         // scene changed, in the middle of a frame. Close the target now so the
         // game does not keep rendering into a buffer nobody displays.
         log::warn("capture was still open at the start of a frame, closing it");
-        if (m_scene.valid()) m_scene.rt->end();
+        restoreGLState(m_savedState);
         m_capturing = false;
     }
 
@@ -39,11 +39,33 @@ bool PostProcessor::beginCapture(FrameInfo const& info) {
     if (cfg.isNoOp()) return false;
 
     if (!ensurePrograms()) return false;
-    if (!ensureTargets(cfg)) return false;
+
+    // Size the capture from the viewport the game is actually rendering to,
+    // not from the design resolution. They are normally the same, but the
+    // viewport is the thing that decides what gets clipped, and it is what the
+    // game's own camera handling can change underneath us.
+    auto const state = captureGLState();
+    if (state.viewport[2] <= 0 || state.viewport[3] <= 0) return false;
+    if (!ensureTargets(cfg, state.viewport[2], state.viewport[3])) return false;
 
     m_frameConfig = cfg;
     m_frameInfo = info;
-    m_scene.rt->beginWithClear(0.0f, 0.0f, 0.0f, 0.0f);
+    m_savedState = state;
+
+    // Bind the capture target and clear it, and touch nothing else. The game's
+    // projection, modelview and viewport are whatever its own camera effects
+    // have set up, and the capture is the same size as the screen, so they are
+    // all still exactly right. CCRenderTexture::begin() would instead reload
+    // the standard projection and reset the viewport, which is what made the
+    // effect fight camera triggers.
+    glBindFramebuffer(GL_FRAMEBUFFER, m_scene.fbo);
+
+    GLfloat clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, clearColor);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+
     m_capturing = true;
     return true;
 }
@@ -52,8 +74,10 @@ void PostProcessor::endCapture() {
     if (!m_capturing) return;
     m_capturing = false;
 
-    if (!m_scene.valid()) return;
-    m_scene.rt->end();
+    if (!m_scene.valid()) {
+        restoreGLState(m_savedState);
+        return;
+    }
 
     m_time += CCDirector::sharedDirector()->getDeltaTime();
     if (m_time > 3600.0f) m_time = 0.0f;
@@ -75,12 +99,15 @@ void PostProcessor::warmUp() {
     auto const& cfg = FRTXConfig::current();
     if (cfg.isNoOp()) return;
     if (!ensurePrograms()) return;
-    ensureTargets(cfg);
+    auto const state = captureGLState();
+    if (state.viewport[2] > 0 && state.viewport[3] > 0) {
+        ensureTargets(cfg, state.viewport[2], state.viewport[3]);
+    }
 }
 
 void PostProcessor::releaseResources() {
     if (m_capturing) {
-        if (m_scene.valid()) m_scene.rt->end();
+        restoreGLState(m_savedState);
         m_capturing = false;
     }
     releaseTargets();
@@ -112,15 +139,15 @@ bool PostProcessor::ensurePrograms() {
     return true;
 }
 
-bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
+bool PostProcessor::ensureTargets(FRTXConfig const& cfg, int viewportW, int viewportH) {
     auto director = CCDirector::sharedDirector();
     auto const winSize = director->getWinSize();
-    auto const scaleFactor = CC_CONTENT_SCALE_FACTOR();
+    auto const scaleFactor = std::max(CC_CONTENT_SCALE_FACTOR(), 0.0001f);
 
     bool const rebuild =
         !m_targetsValid ||
-        winSize.width != m_targetWidth ||
-        winSize.height != m_targetHeight ||
+        viewportW != m_targetViewportW ||
+        viewportH != m_targetViewportH ||
         scaleFactor != m_targetScaleFactor ||
         cfg.needsRealloc(m_targetConfig);
 
@@ -128,8 +155,12 @@ bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
 
     releaseTargets();
 
-    int const sceneW = static_cast<int>(std::ceil(winSize.width));
-    int const sceneH = static_cast<int>(std::ceil(winSize.height));
+    // CCRenderTexture allocates in points and multiplies by the content scale
+    // factor, so convert the viewport's pixels back into points and round up:
+    // the target must never be smaller than the viewport or the scene would be
+    // clipped rather than captured.
+    int const sceneW = static_cast<int>(std::ceil(viewportW / scaleFactor));
+    int const sceneH = static_cast<int>(std::ceil(viewportH / scaleFactor));
     if (sceneW < 4 || sceneH < 4) return false;
 
     // The capture target must stay the same size as the screen. CCRenderTexture
@@ -138,13 +169,14 @@ bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
     // the bloom pyramid is allowed to shrink.
     if (!m_scene.create(sceneW, sceneH)) return false;
 
-    // Rounding up to whole points leaves a sliver of the target unused; work out
-    // how much so every pass samples exactly what the game drew.
-    auto const pixels = director->getWinSizeInPixels();
-    auto const contentW = static_cast<float>(static_cast<int>(sceneW * scaleFactor));
-    auto const contentH = static_cast<float>(static_cast<int>(sceneH * scaleFactor));
-    m_sceneFillX = contentW > 0.0f ? std::min(1.0f, pixels.width / contentW) : 1.0f;
-    m_sceneFillY = contentH > 0.0f ? std::min(1.0f, pixels.height / contentH) : 1.0f;
+    // Rounding up to whole points leaves a sliver of the target unused; work
+    // out how much so every pass samples exactly the region the game drew into.
+    m_sceneFillX = m_scene.pixelWidth > 0
+        ? std::min(1.0f, static_cast<float>(viewportW) / static_cast<float>(m_scene.pixelWidth))
+        : 1.0f;
+    m_sceneFillY = m_scene.pixelHeight > 0
+        ? std::min(1.0f, static_cast<float>(viewportH) / static_cast<float>(m_scene.pixelHeight))
+        : 1.0f;
 
     m_activeLevels = 0;
     if (cfg.bloomEnabled) {
@@ -199,13 +231,14 @@ bool PostProcessor::ensureTargets(FRTXConfig const& cfg) {
 
     m_targetsValid = true;
     m_targetConfig = cfg;
-    m_targetWidth = winSize.width;
-    m_targetHeight = winSize.height;
+    m_targetViewportW = viewportW;
+    m_targetViewportH = viewportH;
     m_targetScaleFactor = scaleFactor;
     m_aspect = winSize.height > 0.0f ? winSize.width / winSize.height : 1.0f;
-    m_pixelHeight = pixels.height > 1.0f ? pixels.height : 1.0f;
+    m_pixelHeight = viewportH > 1 ? static_cast<float>(viewportH) : 1.0f;
 
-    log::info("allocated a {}x{} capture with {} bloom level(s)", sceneW, sceneH, m_activeLevels);
+    log::info("allocated a {}x{}px capture for a {}x{}px viewport with {} bloom level(s)",
+        m_scene.pixelWidth, m_scene.pixelHeight, viewportW, viewportH, m_activeLevels);
     return true;
 }
 
@@ -231,7 +264,7 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
     // Level 0 is the bright pass, taken straight off the captured scene.
     {
         auto& dst = m_bloom[0];
-        dst.rt->begin();
+        bindTargetForDrawing(dst);
         m_prefilter.use();
         m_prefilter.set1i("u_source", 0);
         m_prefilter.set2f("u_sourceUV", m_scene.uvW * m_sceneFillX, m_scene.uvH * m_sceneFillY);
@@ -240,19 +273,18 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
             cfg.emissiveBias);
         // The radius is a fraction of screen height, so the horizontal offset is
         // divided by the aspect ratio to sample a square neighbourhood.
-        m_prefilter.set3f("u_filter2", cfg.bgSuppress,
-            cfg.bgRadius / std::max(m_aspect, 0.0001f), cfg.bgRadius);
+        m_prefilter.set4f("u_filter2", cfg.bgSuppress,
+            cfg.bgRadius / std::max(m_aspect, 0.0001f), cfg.bgRadius, cfg.isolation);
         bindTexture(0, m_scene.textureName());
         setReplaceBlend();
         drawFullscreenQuad();
-        dst.rt->end();
     }
 
     // Each lower level is a half-resolution box downsample of the one above.
     for (int i = 1; i < m_activeLevels; ++i) {
         auto& src = m_bloom[i - 1];
         auto& dst = m_bloom[i];
-        dst.rt->begin();
+        bindTargetForDrawing(dst);
         m_downsample.use();
         m_downsample.set1i("u_source", 0);
         m_downsample.set2f("u_sourceUV", src.uvW, src.uvH);
@@ -260,7 +292,6 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
         bindTexture(0, src.textureName());
         setReplaceBlend();
         drawFullscreenQuad();
-        dst.rt->end();
     }
 
     for (int i = 0; i < m_activeLevels; ++i) {
@@ -269,7 +300,7 @@ void PostProcessor::buildBloom(FRTXConfig const& cfg) {
 }
 
 void PostProcessor::blurPass(Target& dst, Target const& src, float offsetX, float offsetY) {
-    dst.rt->begin();
+    bindTargetForDrawing(dst);
     m_blur.use();
     m_blur.set1i("u_source", 0);
     m_blur.set2f("u_sourceUV", src.uvW, src.uvH);
@@ -277,7 +308,6 @@ void PostProcessor::blurPass(Target& dst, Target const& src, float offsetX, floa
     bindTexture(0, src.textureName());
     setReplaceBlend();
     drawFullscreenQuad();
-    dst.rt->end();
 }
 
 void PostProcessor::blurLevel(Target& target, Target& temp, float radius) {
@@ -304,13 +334,18 @@ void PostProcessor::buildRays(FRTXConfig const& cfg) {
         originY = m_frameInfo.playerY;
     }
 
-    // Keeps the overall brightness roughly stable as the sample count and per
-    // sample weight are dragged around, so those read as shape controls rather
-    // than as another intensity slider.
+    // Normalise by the sum the march actually accumulates -- a geometric
+    // series in the decay -- rather than by a guess. That keeps brightness
+    // stable while sample count and decay are dragged around, so those stay
+    // shape controls and intensity is the only thing that sets how bright the
+    // shafts are. The previous approximation over-divided badly at high sample
+    // counts, which is why rays came out weak.
     float const samples = static_cast<float>(cfg.raysSamples);
-    float const normalisation = 1.0f / (1.0f + cfg.raysWeight * samples * 0.5f);
+    float const decay = std::clamp(cfg.raysDecay, 0.0f, 0.9999f);
+    float const series = (1.0f - std::pow(decay, samples)) / std::max(1.0f - decay, 1e-4f);
+    float const normalisation = 1.0f / std::max(cfg.raysWeight * series, 1e-3f);
 
-    m_rays.rt->begin();
+    bindTargetForDrawing(m_rays);
     m_rayProgram.use();
     m_rayProgram.set1i("u_source", 0);
     m_rayProgram.set2f("u_sourceUV", m_bloom[0].uvW, m_bloom[0].uvH);
@@ -322,7 +357,6 @@ void PostProcessor::buildRays(FRTXConfig const& cfg) {
     bindTexture(0, m_bloom[0].textureName());
     setReplaceBlend();
     drawFullscreenQuad();
-    m_rays.rt->end();
 }
 
 void PostProcessor::present(FRTXConfig const& cfg) {
@@ -415,7 +449,7 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set4f("u_vignette", cfg.vignette, cfg.vignetteRoundness, inner, outer);
 
     m_composite.set4f("u_flare", cfg.flareIntensity, cfg.flareSpacing, cfg.halation,
-        cfg.raysEnabled() ? cfg.raysOcclusion : 0.0f);
+        cfg.raysEnabled() ? cfg.raysFadeOverDark : 0.0f);
     m_composite.set2f("u_lens2", cfg.lensDistortion, 0.0f);
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
@@ -424,6 +458,9 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     // contrast that would show as a ring.
     m_composite.set4f("u_clarity", cfg.clarity, cfg.clarityRadius / m_pixelHeight, 0.25f,
         cfg.clarityTaps > 4 ? 1.0f : 0.0f);
+
+    // Back to the game's own framebuffer and viewport, exactly as they were.
+    restoreGLState(m_savedState);
 
     setReplaceBlend();
     drawFullscreenQuad();

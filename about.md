@@ -77,12 +77,14 @@ you jump.
   much brighter a pixel is than a wide neighbourhood around it. A lone bright
   object keeps its halo; a broad bright wash loses most of it. Raise
   **Bloom: Background Suppression** when a bright sky is blooming as hard as the
-  objects in front of it.
+  objects in front of it, and **Bloom: Isolation Boost** to push the other way.
 - **Light rays** — shafts radiating from a point, which can sit off screen.
-  Jittered sampling keeps them from banding into concentric steps, an occlusion
-  term dims them behind solid objects so they read as light in the air rather
-  than as an overlay, an optional sun disc gives them a visible source, and a
-  shimmer term makes the fan breathe.
+  Jittered sampling keeps them from banding into concentric steps, an optional
+  sun disc gives them a visible source, and a shimmer term makes the fan
+  breathe.
+- **Isolation boost** — a bright thing surrounded by darkness glows harder than
+  the same brightness would in a bright area. Because rays are built from the
+  glow, it gives isolated objects more rays as well.
 - **Lens flare** — ghost images of bright areas mirrored through the centre of
   the screen, the way light bounces between real lens elements.
 - **Halation** — a warm red bleed around highlights, the way film scatters light

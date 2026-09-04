@@ -44,9 +44,27 @@ bool Target::create(int wPoints, int hPoints) {
     auto const contentW = static_cast<float>(static_cast<int>(wPoints * scale));
     auto const contentH = static_cast<float>(static_cast<int>(hPoints * scale));
 
+    // Discover the framebuffer id once, here, where begin()/end() disturbing
+    // the projection costs nothing. Every later pass binds it directly.
+    GLint previousFBO = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFBO);
+    texture->begin();
+    GLint discovered = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &discovered);
+    texture->end();
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFBO));
+
+    if (discovered == 0) {
+        log::error("could not determine the framebuffer for a render target");
+        return false;
+    }
+
     rt = texture;
+    fbo = static_cast<GLuint>(discovered);
     widthPoints = wPoints;
     heightPoints = hPoints;
+    pixelWidth = static_cast<int>(contentW);
+    pixelHeight = static_cast<int>(contentH);
     uvW = contentW / potW;
     uvH = contentH / potH;
     texelW = 1.0f / potW;
@@ -57,8 +75,11 @@ bool Target::create(int wPoints, int hPoints) {
 
 void Target::destroy() {
     rt = nullptr;
+    fbo = 0;
     widthPoints = 0;
     heightPoints = 0;
+    pixelWidth = 0;
+    pixelHeight = 0;
     uvW = uvH = 1.0f;
     texelW = texelH = 0.0f;
 }
@@ -139,6 +160,23 @@ void Program::set4f(char const* name, float x, float y, float z, float w) {
 
 void bindTexture(int unit, GLuint textureName) {
     ccGLBindTexture2DN(static_cast<GLuint>(unit), textureName);
+}
+
+GLViewportState captureGLState() {
+    GLViewportState state;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &state.fbo);
+    glGetIntegerv(GL_VIEWPORT, state.viewport);
+    return state;
+}
+
+void restoreGLState(GLViewportState const& state) {
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(state.fbo));
+    glViewport(state.viewport[0], state.viewport[1], state.viewport[2], state.viewport[3]);
+}
+
+void bindTargetForDrawing(Target const& target) {
+    glBindFramebuffer(GL_FRAMEBUFFER, target.fbo);
+    glViewport(0, 0, target.pixelWidth, target.pixelHeight);
 }
 
 void drawFullscreenQuad() {

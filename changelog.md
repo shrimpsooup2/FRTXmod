@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.9.0
+
+Three bug fixes and one compatibility fix, all from playing it.
+
+- **Light rays were being cancelled by their own occlusion term.** It dimmed
+  rays wherever the scene was dark, on the reasoning that a dark pixel is a
+  solid object blocking the light. In a 2D game with no depth buffer that
+  reasoning does not hold: dark pixels here are mostly empty background, which
+  is exactly where shafts should be most visible. Cathedral used 0.75 of it, so
+  its rays were cut to a quarter precisely where they would have shown, which
+  is why that preset looked like it did nothing. The term is now off by default,
+  renamed **Fade Over Dark**, and described as the stylistic choice it is.
+- **Rays are much stronger.** The pass normalised by a guess that over-divided
+  badly at high sample counts. It now normalises by the geometric series the
+  march actually accumulates, so sample count and decay are purely shape and
+  intensity alone sets brightness. The intensity range went to 6 and the ray
+  presets were retuned around it.
+- **Lens flare was invisible, not broken.** Ghosts were multiplied by an extra
+  0.25 on top of a squared falloff, so they peaked at a quarter of a bloom
+  sample. That factor is gone and the range now reaches 3.
+- **New: Bloom Isolation Boost.** The inverse of background suppression, from
+  the same neighbourhood measurement: bright things surrounded by darkness glow
+  harder, and get more rays with it.
+- **Camera effect compatibility.** `CCRenderTexture::begin()` reloads the
+  standard projection and identity modelview, and `end()` resets the viewport.
+  Wrapping the game layer in those meant every frame stamped over whatever the
+  2.2 camera triggers had configured, which is why levels like Dash broke. The
+  renderer now binds framebuffers itself and never touches a matrix, a
+  projection or the viewport, and it sizes the capture from the viewport the
+  game is really drawing into rather than from the design resolution.
+
 ## v0.8.0
 
 Light rays get most of the attention, plus three new lens effects and six more
