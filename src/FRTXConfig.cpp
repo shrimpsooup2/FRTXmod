@@ -42,6 +42,13 @@ namespace {
         return Mod::get()->getSettingValue<bool>(key);
     }
 
+    cocos2d::ccColor3B toColor3B(FRTXColor const& c) {
+        return cocos2d::ccc3(
+            static_cast<int>(std::clamp(c.r, 0.0f, 1.0f) * 255.0f + 0.5f),
+            static_cast<int>(std::clamp(c.g, 0.0f, 1.0f) * 255.0f + 0.5f),
+            static_cast<int>(std::clamp(c.b, 0.0f, 1.0f) * 255.0f + 0.5f));
+    }
+
     FRTXColor readColor(char const* key, int, int, int) {
         auto c = Mod::get()->getSettingValue<cocos2d::ccColor3B>(key);
         return FRTXColor{c.r / 255.0f, c.g / 255.0f, c.b / 255.0f};
@@ -79,6 +86,10 @@ namespace {
         cfg.flareSpacing = 0.35f;
         cfg.halation = 0.0f;
         cfg.lensDistortion = 0.0f;
+        cfg.pixelSize = 1;
+        cfg.paletteLevels = 32;
+        cfg.paletteDither = 0.8f;
+        cfg.paletteDuotone = 0.0f;
 
         switch (preset) {
             // Built for glow-heavy levels: only strongly saturated things are
@@ -411,6 +422,91 @@ namespace {
                 cfg.grain = 0.060f;
                 return;
 
+            // A four-tone green handheld. The palette is two colours and the
+            // level count; everything else is kept quiet so the pixels read.
+            case FRTXPreset::Handheld:
+                cfg.pixelSize = 5;
+                cfg.paletteLevels = 4;
+                cfg.paletteDither = 1.0f;
+                cfg.paletteDuotone = 1.0f;
+                cfg.paletteDark = FRTXColor{15.0f / 255.0f, 56.0f / 255.0f, 15.0f / 255.0f};
+                cfg.paletteLight = FRTXColor{155.0f / 255.0f, 188.0f / 255.0f, 15.0f / 255.0f};
+                cfg.bloomIntensity = 0.70f;
+                cfg.bloomThreshold = 0.60f;
+                cfg.bloomRadius = 1.2f;
+                cfg.bloomLevels = 2;
+                cfg.bloomSpread = 0.60f;
+                cfg.emissiveBias = 0.30f;
+                cfg.isolation = 0.60f;
+                cfg.exposure = 1.05f;
+                cfg.contrast = 1.10f;
+                cfg.saturation = 1.0f;
+                cfg.clarity = 0.0f;
+                cfg.blackPoint = 0.020f;
+                cfg.splitShadow = 0.0f;
+                cfg.splitHighlight = 0.0f;
+                cfg.vignette = 0.20f;
+                cfg.chromatic = 0.0f;
+                cfg.grain = 0.0f;
+                return;
+
+            // Full colour but coarse: a cabinet screen rather than a handheld,
+            // so the glow stays strong and the curvature is left on.
+            case FRTXPreset::Arcade:
+                cfg.pixelSize = 3;
+                cfg.paletteLevels = 8;
+                cfg.paletteDither = 0.60f;
+                cfg.paletteDuotone = 0.0f;
+                cfg.bloomIntensity = 1.70f;
+                cfg.bloomThreshold = 0.50f;
+                cfg.bloomKnee = 0.40f;
+                cfg.bloomRadius = 1.8f;
+                cfg.bloomSpread = 0.75f;
+                cfg.emissiveBias = 0.55f;
+                cfg.isolation = 1.20f;
+                cfg.exposure = 1.06f;
+                cfg.contrast = 1.18f;
+                cfg.saturation = 1.35f;
+                cfg.clarity = 0.0f;
+                cfg.blackPoint = 0.050f;
+                cfg.splitShadow = 0.20f;
+                cfg.splitHighlight = 0.15f;
+                cfg.vignette = 0.40f;
+                cfg.chromatic = 0.22f;
+                cfg.lensDistortion = 0.10f;
+                cfg.halation = 0.25f;
+                cfg.grain = 0.010f;
+                return;
+
+            // Two colours and nothing else. At this level count the dithering
+            // is not a nicety, it is the only thing carrying tone at all.
+            case FRTXPreset::Demake:
+                cfg.pixelSize = 6;
+                cfg.paletteLevels = 2;
+                cfg.paletteDither = 1.0f;
+                cfg.paletteDuotone = 1.0f;
+                cfg.paletteDark = FRTXColor{18.0f / 255.0f, 16.0f / 255.0f, 28.0f / 255.0f};
+                cfg.paletteLight = FRTXColor{242.0f / 255.0f, 235.0f / 255.0f, 214.0f / 255.0f};
+                cfg.bloomIntensity = 0.90f;
+                cfg.bloomThreshold = 0.55f;
+                cfg.bloomRadius = 1.4f;
+                cfg.bloomLevels = 2;
+                cfg.bloomSpread = 0.65f;
+                cfg.emissiveBias = 0.25f;
+                cfg.isolation = 0.90f;
+                cfg.exposure = 1.05f;
+                cfg.contrast = 1.30f;
+                cfg.saturation = 0.0f;
+                cfg.clarity = 0.25f;
+                cfg.clarityRadius = 3.0f;
+                cfg.blackPoint = 0.030f;
+                cfg.splitShadow = 0.0f;
+                cfg.splitHighlight = 0.0f;
+                cfg.vignette = 0.25f;
+                cfg.chromatic = 0.0f;
+                cfg.grain = 0.0f;
+                return;
+
             case FRTXPreset::Count:
                 return;
 
@@ -551,8 +647,10 @@ void FRTXConfig::applyPreset(FRTXPreset preset) {
     mod->setSettingValue<int64_t>(key, static_cast<int64_t>(cfg.member));
 #define FRTX_BOOL(key, member, label, def) \
     mod->setSettingValue<bool>(key, cfg.member);
-// Colours are the user's own choice; no preset speaks for them.
-#define FRTX_COLOR(key, member, label, r, g, b)
+// Colours are written back too. presetInto only names the ones a preset
+// actually cares about, so every other tint keeps whatever the user chose.
+#define FRTX_COLOR(key, member, label, r, g, b) \
+    mod->setSettingValue<cocos2d::ccColor3B>(key, toColor3B(cfg.member));
 #include "FRTXParams.inc"
 
     invalidate();
@@ -585,6 +683,7 @@ bool FRTXConfig::isNoOp() const {
     if (clarity > 0.0f || blackPoint > 0.0f) return false;
     if (splitShadow != 0.0f || splitHighlight != 0.0f) return false;
     if (dither) return false;
+    if (pixelSize > 1 || paletteLevels < 32 || paletteDuotone > 0.0f) return false;
     // Anything that leaves the image mathematically unchanged.
     return exposure == 1.0f
         && contrast == 1.0f

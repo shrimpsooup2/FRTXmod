@@ -56,6 +56,14 @@ you jump.
 - **Vivid** — punch from colour and contrast rather than from glow.
 - **Retro** — cheap optics on purpose: fringing, curvature and grain.
 
+**Built around pixels and palettes**
+
+- **Handheld** — a four-tone green handheld. Chunky pixels, two colours, and
+  everything else kept quiet so the pixels read.
+- **Arcade** — full colour but coarse, with the curvature and glow of a cabinet
+  screen rather than a handheld.
+- **Demake** — the whole game reduced to two colours and dithering.
+
 **Built around light rays**
 
 - **Sunbeam** — a straightforward sun with visible shafts.
@@ -137,6 +145,25 @@ though it has depth. Keep it gentle: pushed hard it puts a dark ring around
 every glowing outline, which is the giveaway of a sharpening filter. **Taps**
 trades quality for speed and is the most expensive thing in the final pass.
 
+### Pixel and Palette
+
+- **Pixel Size** — the size of one chunky pixel, in screen pixels. 1 leaves the
+  image alone. The grid is applied before anything is sampled, so the glow, the
+  streaks and the rays all land on the same blocks as the scene — you get real
+  pixel art, not a blurred picture with squares drawn over it.
+- **Colour Levels** — how many steps each colour channel gets. 32 is
+  effectively off, 4 is poster art, 2 is one bit per channel.
+- **Dither** — ordered dithering applied before the colours are snapped, keyed
+  to the pixel grid. This is the difference between a low palette looking like
+  real pixel art and looking broken, so leave it high when Colour Levels is
+  low.
+- **Duotone** — blends the image onto a ramp between the two colours below, so
+  any pair of colours becomes a complete palette. 1 replaces the colour
+  entirely; that plus a low Colour Levels is how a handheld or one-bit look is
+  built.
+- **Duotone Dark / Duotone Light** — the two colours that ramp maps between.
+  Pick any two and the whole game is rendered in them.
+
 ### Grade
 
 - **Filmic Tonemapping** — rolls highlights off smoothly instead of clipping.
@@ -160,6 +187,8 @@ dithering to hide colour banding in smooth gradients.
 - **A big glowing object looks hollow** — raise **Bloom: Background Scale**.
 - **Dark rings around neon outlines** — lower **Clarity: Amount**.
 - **Rays look like concentric arcs** — raise **Light Rays: Jitter**.
+- **A low palette looks like flat plates instead of pixel art** — raise
+  **Dither**. At 2 to 4 levels the dithering is the only thing carrying tone.
 - **It costs too many frames** — press **Performance**, or lower **Bloom:
   Resolution Scale**, then **Clarity** to 0, then **Bloom: Levels**.
 

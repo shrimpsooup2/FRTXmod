@@ -139,6 +139,24 @@ SPEC = [
      "Barrel distortion at positive values, pincushion at negative. Small amounts read as a real lens; large ones as a fisheye.",
      -0.3, 0.3, 0.0, 0.005),
 
+    (TITLE, None, None, "Pixel and Palette", None, None, None, None, None),
+    (INT, "pixel-size", "pixelSize", "Pixel Size",
+     "Size of one chunky pixel, in screen pixels. 1 leaves the image at full resolution. Everything is snapped to this grid, including the glow, so the whole picture stays consistent rather than looking like a blurred photo with big squares over it.",
+     1, 32, 1, 1),
+    (INT, "palette-levels", "paletteLevels", "Colour Levels",
+     "How many steps each colour channel is allowed. 32 is effectively off; 4 is poster art; 2 is one bit per channel. Low values need dithering or they band badly.",
+     2, 32, 32, 1),
+    (FLOAT, "palette-dither", "paletteDither", "Dither",
+     "Ordered dithering applied before the colours are snapped. This is what turns flat banding into texture, and it is the difference between a low palette looking like real pixel art and looking broken. Matched to the pixel grid.",
+     0.0, 1.0, 0.8, 0.01),
+    (FLOAT, "palette-duotone", "paletteDuotone", "Duotone",
+     "Blends the image onto a ramp between the two colours below, so any pair becomes a complete palette. 1 replaces the colour entirely, which is how a Game Boy or a one-bit look is built.",
+     0.0, 1.0, 0.0, 0.01),
+    (COLOR, "palette-dark", "paletteDark", "Duotone Dark",
+     "The colour the darkest parts of the image become.", None, None, (15, 56, 15), None),
+    (COLOR, "palette-light", "paletteLight", "Duotone Light",
+     "The colour the brightest parts of the image become.", None, None, (155, 188, 15), None),
+
     (TITLE, None, None, "Clarity", None, None, None, None, None),
     (FLOAT, "clarity", "clarity", "Amount",
      "Local contrast. Lifts edge and material detail so the frame reads as though it has depth. Pushed hard it rings bright outlines.",
@@ -201,7 +219,19 @@ PRESETS = [
     ("Aurora",      "aurora",      "Aurora",      "rays"),
     ("Inferno",     "inferno",     "Inferno",     "rays"),
     ("Retro",       "retro",       "Retro",       "style"),
+    ("Handheld",    "handheld",    "Handheld",    "pixel"),
+    ("Arcade",      "arcade",      "Arcade",      "pixel"),
+    ("Demake",      "demake",      "Demake",      "pixel"),
 ]
+
+
+# group name -> the mod.json button setting that hosts it
+GROUP_SETTING = {
+    "core": "presets",
+    "style": "style-presets",
+    "rays": "ray-presets",
+    "pixel": "pixel-presets",
+}
 
 
 def gen_presets_inc():
@@ -220,7 +250,13 @@ def gen_presets_inc():
     ]
     for name, ident, label, _group in PRESETS:
         out.append(f'FRTX_PRESET({name}, "{ident}", "{label}")')
-    out += ["", "#undef FRTX_PRESET", ""]
+
+    # The mod.json button settings that host these presets. Listeners are
+    # registered from this list, so adding a group cannot leave dead buttons.
+    out += ["", "#ifndef FRTX_PRESET_GROUP", "#define FRTX_PRESET_GROUP(key)", "#endif", ""]
+    for group in dict.fromkeys(g for *_r, g in PRESETS):
+        out.append(f'FRTX_PRESET_GROUP("{GROUP_SETTING[group]}")')
+    out += ["", "#undef FRTX_PRESET", "#undef FRTX_PRESET_GROUP", ""]
     pathlib.Path('src/FRTXPresets.inc').write_text("\n".join(out))
     return len(PRESETS)
 
@@ -257,7 +293,7 @@ def gen_mod_json():
     # Presets write their values into the settings once, rather than overriding
     # them on every read. An override layer means dragging a slider silently
     # does nothing, which is worse than no presets at all.
-    settings["presets"] = collections.OrderedDict([
+    settings[GROUP_SETTING["core"]] = collections.OrderedDict([
         ("name", "Apply a preset"),
         ("description", "Writes that preset's values into the settings below. Everything stays "
                         "editable afterwards -- a preset is a starting point, not a lock."),
@@ -265,7 +301,7 @@ def gen_mod_json():
         ("buttons", collections.OrderedDict(
             [(i, l) for _n, i, l, g in PRESETS if g == "core"])),
     ])
-    settings["ray-presets"] = collections.OrderedDict([
+    settings[GROUP_SETTING["rays"]] = collections.OrderedDict([
         ("name", "Light Ray Styles"),
         ("description", "Presets built around the light ray pass. Dawn is a low warm sun with long "
                         "shafts, Cathedral drops hard shafts from overhead, Eclipse is a dark frame "
@@ -275,7 +311,16 @@ def gen_mod_json():
         ("buttons", collections.OrderedDict(
             [(i, l) for _n, i, l, g in PRESETS if g == "rays"])),
     ])
-    settings["style-presets"] = collections.OrderedDict([
+    settings[GROUP_SETTING["pixel"]] = collections.OrderedDict([
+        ("name", "Pixel Styles"),
+        ("description", "Presets built around the pixel and palette pass. Handheld is a four-tone "
+                        "green handheld, Arcade is a chunky full-colour cabinet look, and Demake "
+                        "reduces the game to two colours and dithering."),
+        ("type", "button"),
+        ("buttons", collections.OrderedDict(
+            [(i, l) for _n, i, l, g in PRESETS if g == "pixel"])),
+    ])
+    settings[GROUP_SETTING["style"]] = collections.OrderedDict([
         ("name", "Styles"),
         ("description", "Different looks rather than different intensities. Neon suits glow-heavy "
                         "levels, Cinematic goes for filmic warmth, Dreamy for a soft wide haze, "

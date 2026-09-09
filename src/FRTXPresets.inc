@@ -25,5 +25,18 @@ FRTX_PRESET(Eclipse, "eclipse", "Eclipse")
 FRTX_PRESET(Aurora, "aurora", "Aurora")
 FRTX_PRESET(Inferno, "inferno", "Inferno")
 FRTX_PRESET(Retro, "retro", "Retro")
+FRTX_PRESET(Handheld, "handheld", "Handheld")
+FRTX_PRESET(Arcade, "arcade", "Arcade")
+FRTX_PRESET(Demake, "demake", "Demake")
+
+#ifndef FRTX_PRESET_GROUP
+#define FRTX_PRESET_GROUP(key)
+#endif
+
+FRTX_PRESET_GROUP("presets")
+FRTX_PRESET_GROUP("style-presets")
+FRTX_PRESET_GROUP("ray-presets")
+FRTX_PRESET_GROUP("pixel-presets")
 
 #undef FRTX_PRESET
+#undef FRTX_PRESET_GROUP

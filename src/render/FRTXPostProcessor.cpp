@@ -464,6 +464,21 @@ void PostProcessor::present(FRTXConfig const& cfg) {
     m_composite.set4f("u_flare", cfg.flareIntensity, cfg.flareSpacing, cfg.halation,
         cfg.raysEnabled() ? cfg.raysFadeOverDark : 0.0f);
     m_composite.set2f("u_lens2", cfg.lensDistortion, 0.0f);
+
+    // Blocks across the screen, so the grid is in real pixels whatever the
+    // design resolution happens to be.
+    float const pixelSize = static_cast<float>(std::max(cfg.pixelSize, 1));
+    float const blocksX = std::max(1.0f, static_cast<float>(m_targetViewportW) / pixelSize);
+    float const blocksY = std::max(1.0f, static_cast<float>(m_targetViewportH) / pixelSize);
+    m_composite.set4f("u_pixel", std::floor(blocksX), std::floor(blocksY), pixelSize, 0.0f);
+
+    bool const paletteActive = cfg.paletteLevels < 32 || cfg.paletteDuotone > 0.0f;
+    m_composite.set4f("u_palette", static_cast<float>(cfg.paletteLevels),
+        cfg.paletteDither, cfg.paletteDuotone, paletteActive ? 1.0f : 0.0f);
+    m_composite.set3f("u_paletteDark",
+        cfg.paletteDark.r, cfg.paletteDark.g, cfg.paletteDark.b);
+    m_composite.set3f("u_paletteLight",
+        cfg.paletteLight.r, cfg.paletteLight.g, cfg.paletteLight.b);
     m_composite.set4f("u_misc", m_aspect, m_time, static_cast<float>(cfg.debugView), 0.0f);
     m_composite.set2f("u_grade", cfg.temperature, cfg.tint);
     m_composite.set4f("u_grade2", cfg.blackPoint, cfg.splitShadow, cfg.splitHighlight, 0.0f);

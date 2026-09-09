@@ -264,11 +264,27 @@ uniform vec2 u_grade;     // x = temperature, y = tint
 uniform vec4 u_grade2;    // x = black point, y = shadow split, z = highlight split
 uniform vec4 u_flare;     // x = ghost intensity, y = spacing, z = halation, w = ray occlusion
 uniform vec2 u_lens2;     // x = barrel distortion, y = unused
+uniform vec4 u_pixel;     // xy = block counts, z = block size in pixels, w = unused
+uniform vec4 u_palette;   // x = levels, y = dither, z = duotone, w = pass enabled
+uniform vec3 u_paletteDark;
+uniform vec3 u_paletteLight;
 uniform vec4 u_clarity;   // x = amount, y = radius in screen uv, z = detail clamp, w = use 8 taps
 
 varying vec2 v_texCoord;
 
 const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+// A 4x4 ordered dither, built by recursion rather than by indexing a table:
+// GLSL ES 1.00 does not guarantee dynamic indexing of arrays in a fragment
+// shader, and this needs neither an array nor a texture.
+float bayer2(vec2 a) {
+    a = floor(a);
+    return fract(a.x * 0.5 + a.y * a.y * 0.75);
+}
+
+float bayer4(vec2 a) {
+    return bayer2(0.5 * a) * 0.25 + bayer2(a);
+}
 
 // Narkowicz's ACES filmic curve fit.
 vec3 tonemapACES(vec3 x) {
@@ -340,6 +356,15 @@ void main() {
         vec2 centred = uv - vec2(0.5);
         uv = vec2(0.5) + centred * (1.0 + u_lens2.x * dot(centred, centred));
         uv = clamp(uv, 0.0, 1.0);
+    }
+
+    // Snap to the pixel grid before anything is sampled, so the glow, the
+    // streaks and the rays all land on the same blocks as the scene. Doing it
+    // at the end instead would give a blurred image with squares drawn over
+    // it, which is not the same thing at all.
+    vec2 screenUV = uv;
+    if (u_pixel.z > 1.0) {
+        uv = (floor(uv * u_pixel.xy) + 0.5) / u_pixel.xy;
     }
 
     vec3 color = sampleScene(uv, u_lens.x);
@@ -451,7 +476,7 @@ void main() {
     if (u_vignette.x > 0.0) {
         // Roundness blends between following the shape of the screen and a
         // true circle.
-        vec2 d = (uv - vec2(0.5)) * vec2(mix(1.0, u_misc.x, u_vignette.y), 1.0);
+        vec2 d = (screenUV - vec2(0.5)) * vec2(mix(1.0, u_misc.x, u_vignette.y), 1.0);
         float v = 1.0 - smoothstep(u_vignette.z, u_vignette.w, length(d));
         color *= mix(1.0, v, u_vignette.x);
     }
@@ -465,7 +490,33 @@ void main() {
         color += (noise - 0.5) * (1.0 / 255.0);
     }
 
-    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+    color = clamp(color, 0.0, 1.0);
+
+    if (u_palette.w > 0.5) {
+        float levels = max(u_palette.x, 2.0) - 1.0;
+
+        // Dither before quantising, keyed to the block grid rather than to
+        // screen pixels so the pattern is the same size as the pixels it is
+        // breaking up. Without this a low palette bands into flat plates.
+        vec2 ditherCoord = u_pixel.z > 1.0
+            ? floor(gl_FragCoord.xy / u_pixel.z)
+            : gl_FragCoord.xy;
+        color += (bayer4(ditherCoord) - 0.5) * u_palette.y / levels;
+        color = clamp(color, 0.0, 1.0);
+
+        vec3 quantised = floor(color * levels + 0.5) / levels;
+
+        if (u_palette.z > 0.0) {
+            // Map luminance onto a ramp between two chosen colours, so any
+            // pair of colours becomes a whole palette.
+            float l = floor(dot(color, LUMA) * levels + 0.5) / levels;
+            quantised = mix(quantised, mix(u_paletteDark, u_paletteLight, l), u_palette.z);
+        }
+
+        color = quantised;
+    }
+
+    gl_FragColor = vec4(color, 1.0);
 }
 )";
 

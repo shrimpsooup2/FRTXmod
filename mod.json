@@ -5,11 +5,11 @@
     },
     "id": "shrimpsooup2.frtx",
     "name": "FRTX",
-    "version": "v0.10.0",
+    "version": "v0.11.0",
     "developers": [
         "shrimpsooup2"
     ],
-    "description": "RTX-style post processing for Geometry Dash: emissive bloom, volumetric light rays, lens flare, halation and cinematic grading, with a live in-game tuner.",
+    "description": "RTX-style post processing for Geometry Dash: emissive bloom, volumetric light rays, lens flare, pixel and palette effects, and cinematic grading, with a live in-game tuner.",
     "repository": "https://github.com/shrimpsooup2/FRTXmod",
     "settings": {
         "title-quickstart": {
@@ -42,6 +42,16 @@
                 "eclipse": "Eclipse",
                 "aurora": "Aurora",
                 "inferno": "Inferno"
+            }
+        },
+        "pixel-presets": {
+            "name": "Pixel Styles",
+            "description": "Presets built around the pixel and palette pass. Handheld is a four-tone green handheld, Arcade is a chunky full-colour cabinet look, and Demake reduces the game to two colours and dithering.",
+            "type": "button",
+            "buttons": {
+                "handheld": "Handheld",
+                "arcade": "Arcade",
+                "demake": "Demake"
             }
         },
         "style-presets": {
@@ -512,6 +522,78 @@
             }
         },
         "title-6": {
+            "name": "Pixel and Palette",
+            "type": "title"
+        },
+        "pixel-size": {
+            "name": "Pixel Size",
+            "description": "Size of one chunky pixel, in screen pixels. 1 leaves the image at full resolution. Everything is snapped to this grid, including the glow, so the whole picture stays consistent rather than looking like a blurred photo with big squares over it.",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 32,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "palette-levels": {
+            "name": "Colour Levels",
+            "description": "How many steps each colour channel is allowed. 32 is effectively off; 4 is poster art; 2 is one bit per channel. Low values need dithering or they band badly.",
+            "type": "int",
+            "default": 32,
+            "min": 2,
+            "max": 32,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "palette-dither": {
+            "name": "Dither",
+            "description": "Ordered dithering applied before the colours are snapped. This is what turns flat banding into texture, and it is the difference between a low palette looking like real pixel art and looking broken. Matched to the pixel grid.",
+            "type": "float",
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "palette-duotone": {
+            "name": "Duotone",
+            "description": "Blends the image onto a ramp between the two colours below, so any pair becomes a complete palette. 1 replaces the colour entirely, which is how a Game Boy or a one-bit look is built.",
+            "type": "float",
+            "default": 0.0,
+            "min": 0.0,
+            "max": 1.0,
+            "control": {
+                "slider": true,
+                "input": true
+            }
+        },
+        "palette-dark": {
+            "name": "Duotone Dark",
+            "description": "The colour the darkest parts of the image become.",
+            "type": "rgb",
+            "default": {
+                "r": 15,
+                "g": 56,
+                "b": 15
+            }
+        },
+        "palette-light": {
+            "name": "Duotone Light",
+            "description": "The colour the brightest parts of the image become.",
+            "type": "rgb",
+            "default": {
+                "r": 155,
+                "g": 188,
+                "b": 15
+            }
+        },
+        "title-7": {
             "name": "Clarity",
             "type": "title"
         },
@@ -551,7 +633,7 @@
                 "input": true
             }
         },
-        "title-7": {
+        "title-8": {
             "name": "Grade",
             "type": "title"
         },
@@ -657,7 +739,7 @@
                 "input": true
             }
         },
-        "title-8": {
+        "title-9": {
             "name": "Lens",
             "type": "title"
         },

@@ -347,7 +347,9 @@ void FRTXTuner::registerListeners() {
         }
         return false;
     };
-    ButtonSettingPressedEventV3(Mod::get(), "presets").listen(onPreset).leak();
-    ButtonSettingPressedEventV3(Mod::get(), "style-presets").listen(onPreset).leak();
-    ButtonSettingPressedEventV3(Mod::get(), "ray-presets").listen(onPreset).leak();
+    // One listener per button group, generated from the same list the groups
+    // themselves are, so a new group can never ship with dead buttons.
+#define FRTX_PRESET_GROUP(key) \
+    ButtonSettingPressedEventV3(Mod::get(), key).listen(onPreset).leak();
+#include "../FRTXPresets.inc"
 }

@@ -136,9 +136,10 @@ def check_preset_buttons_are_listened_for():
     mod.json and forget that the press has to be subscribed to separately.
     """
     mod = json.loads((ROOT / 'mod.json').read_text())
-    tuner = (ROOT / 'src/ui/FRTXTuner.cpp').read_text()
+    registered = ((ROOT / 'src/ui/FRTXTuner.cpp').read_text()
+                  + (ROOT / 'src/FRTXPresets.inc').read_text())
     for key, spec in mod['settings'].items():
-        if spec.get('type') == 'button' and f'"{key}"' not in tuner:
+        if spec.get('type') == 'button' and f'"{key}"' not in registered:
             problems.append(
                 f"button setting '{key}' has no ButtonSettingPressedEventV3 listener; "
                 f"its buttons would do nothing")

@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.11.0
+
+Adds a pixel and palette pass, with three presets built around it.
+
+- **Pixel Size** snaps the image to a block grid. The snap happens before
+  anything is sampled, so the bloom, streaks and rays land on the same blocks
+  as the scene rather than sitting on top of it as a smooth layer -- the
+  difference between pixel art and a blurred photo with squares over it.
+- **Colour Levels** quantises each channel, and **Duotone** maps luminance onto
+  a ramp between two chosen colours, so any pair becomes a whole palette.
+- **Dither** applies an ordered 4x4 pattern before quantising, keyed to the
+  pixel grid so the pattern matches the block size. At two or four levels this
+  is the only thing carrying tone at all. It is built by recursion rather than
+  from a lookup table, because GLSL ES 1.00 does not guarantee dynamic array
+  indexing in a fragment shader.
+- **Three presets**: Handheld (four-tone green, chunky), Arcade (full colour,
+  coarse, curved and bright) and Demake (two colours and dithering).
+- Presets can now write colour settings. They only name the colours they
+  actually care about, so a palette preset can carry its palette while every
+  other tint keeps whatever you chose.
+- The preset button groups are generated alongside the presets themselves, so
+  a new group cannot ship with buttons that do nothing.
+
 ## v0.10.0
 
 - **Fixes the effect growing stronger in levels with shader triggers.**
